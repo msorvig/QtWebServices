@@ -22,7 +22,7 @@ private:
 
 private slots:
     void on_pushButtonGo_clicked();
-    void onAuthenticationResponse();
+    void onAuthenticationResponse(AuthenticationState response);
 };
 
 #endif // MAINWINDOW_H

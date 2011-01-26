@@ -15,12 +15,19 @@
     setPassword("********")
     setServiceName("foo")  Pick one from http://code.google.com/apis/gdata/faq.html#clientlogin
     setSourceName("MyCompany-MyApp-MyVersionNumber")
-
     sendAuthenticationRequest()
-    Handle Signal: authenticationResponse();
-
-    ... (TODO)
+    Handle Signal: authenticationResponse(), deal with authenticationState as specified below.
 */
+enum AuthenticationState {
+    NoAuthentication,
+    PendingAuthentication,      // lookup in progress, wait.
+    SuccessfullAuthentication,  // login and password was accepted, read authenticationToken for key
+    FailedAuthentication,       // login or password mismatch.
+    CaptchaRequired,             // display captcha, set answer, call sendAuthenticationRequest again.
+                                // alternatively, have the user solve the captcha at
+                                // https://www.google.com/accounts/DisplayUnlockCaptcha
+    NetworkError                // network on fire.
+};
 class QtGoogleClientLogin : public QObject
 {
     Q_OBJECT
@@ -33,21 +40,19 @@ public:
     void setServiceName(const QString &serviceName);
     void setSourceName(const QString &serviceName);
 
-    void setCaptchaAnswer(const QString &captchaAnswer);
     void sendAuthenticationRequest();
 
-    enum AuthenticationReponse { Success, Failure, InvalidRequest, Captcha};
-    QImage captcha() const;
-    QByteArray authenticationToken();
-    QString statusCode();
-signals:
-    void authenticationResponse();
+    // Not implemented
+    //QImage captcha() const;
+    void setCaptchaAnswer(const QString &captchaAnswer);
 
-public slots:
+    QByteArray authenticationToken();
+    AuthenticationState authenticationState();
+signals:
+    void authenticationResponse(AuthenticationState response);
 
 private slots:
     void replyFinished(QNetworkReply *);
-    void slotReadyRead();
     void slotError(QNetworkReply::NetworkError);
     void slotSslErrors(QList<QSslError>);
 private:
@@ -58,8 +63,10 @@ private:
     QString m_sourceName;
     QImage m_captcha;
     QString m_captchaAnswer;
-    QString m_status;
+    QByteArray m_replyContents;
+    QByteArray m_auth;
     QNetworkReply *m_reply;
+    AuthenticationState m_authenticationState;
 };
 
 #endif // QTCLIENTLOGIN_H

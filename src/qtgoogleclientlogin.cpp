@@ -8,6 +8,7 @@ QtGoogleClientLogin::QtGoogleClientLogin(QObject *parent)
 {
     m_networkAccessManager = new QNetworkAccessManager(this);
     connect(m_networkAccessManager, SIGNAL(finished(QNetworkReply*)), SLOT(replyFinished(QNetworkReply*)));
+    m_authenticationState = NoAuthentication;
 }
 
 QtGoogleClientLogin::~QtGoogleClientLogin()
@@ -42,7 +43,9 @@ void QtGoogleClientLogin::setCaptchaAnswer(const QString &captchaAnswer)
 
 void QtGoogleClientLogin::sendAuthenticationRequest()
 {
-    qDebug() << "logging in" << m_login << "pass" << m_password.count() << "chars";
+    m_authenticationState = PendingAuthentication;
+
+    //qDebug() << "logging in" << m_login << "pass" << m_password.count() << "chars";
     //qDebug() << "ssl socket support" << QSslSocket::supportsSsl();
 
     QNetworkRequest request(QUrl("https://www.google.com/accounts/ClientLogin"));
@@ -60,44 +63,58 @@ void QtGoogleClientLogin::sendAuthenticationRequest()
     data.remove(0,1);
 
     m_reply = m_networkAccessManager->post(request, data);
-    connect(m_reply, SIGNAL(readyRead()), this, SLOT(slotReadyRead()));
     connect(m_reply, SIGNAL(error(QNetworkReply::NetworkError)),
             this, SLOT(slotError(QNetworkReply::NetworkError)));
-
-   connect(m_reply, SIGNAL(sslErrors(QList<QSslError>)),
-           this, SLOT(slotSslErrors(QList<QSslError>)));
-
-    qDebug() << m_reply->isFinished() << m_reply->isRunning();
+    connect(m_reply, SIGNAL(sslErrors(QList<QSslError>)),
+            this, SLOT(slotSslErrors(QList<QSslError>)));
 }
 
-QString QtGoogleClientLogin::statusCode()
+QByteArray QtGoogleClientLogin::authenticationToken()
 {
-    m_status = "unicorns and rainbows";
-    return m_status;
+    return m_auth;
 }
 
 void QtGoogleClientLogin::replyFinished(QNetworkReply *reply)
 {
-    qDebug() << "reply" << m_reply->readAll();
-}
+    reply->deleteLater();
+    if (m_authenticationState != PendingAuthentication)
+        return; // there was an error
 
-void QtGoogleClientLogin::slotReadyRead()
-{
-    qDebug() << "ready read";
+    m_replyContents = m_reply->readAll();
+    QList<QByteArray> replyParts = m_replyContents.split('\n');
+    foreach (const QByteArray &replyPart, replyParts) {
+        if (replyPart.startsWith("Auth")) {
+            m_auth = replyPart;
+        }
+    }
+    if (m_auth.isEmpty()) {
+       m_authenticationState = NetworkError;
+    } else {
+        m_authenticationState = SuccessfullAuthentication;
+    }
+    emit authenticationResponse(m_authenticationState);
 }
 
 void QtGoogleClientLogin::slotError(QNetworkReply::NetworkError error)
 {
-    qDebug() << "network error" << error;
-    qDebug() << m_reply->readAll();
-}
+    m_replyContents = m_reply->readAll();
+    if (error == 202) {
+        QList<QByteArray> replyParts = m_replyContents.split('\n');
+        if (replyParts.contains(QByteArray("Error=CaptchaRequired"))) {
+            m_authenticationState = CaptchaRequired;
+        } else {
+            m_authenticationState = FailedAuthentication;
+        }
+    } else {
+        m_authenticationState = NetworkError;
+    }
 
+    emit authenticationResponse(m_authenticationState);
+}
 
 void QtGoogleClientLogin::slotSslErrors(QList<QSslError> sslErrors)
 {
-    qDebug() << "ssl error" << sslErrors;
     m_reply->ignoreSslErrors();
-
 }
 
 

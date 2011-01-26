@@ -8,7 +8,8 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
     m_clientLogin = new QtGoogleClientLogin();
-    connect(m_clientLogin, SIGNAL(authenticationResponse()), SLOT(onAuthenticationResponse()));
+    connect(m_clientLogin, SIGNAL(authenticationResponse(AuthenticationState)),
+                           SLOT(onAuthenticationResponse(AuthenticationState)));
 }
 
 MainWindow::~MainWindow()
@@ -27,8 +28,20 @@ void MainWindow::on_pushButtonGo_clicked()
     m_clientLogin->sendAuthenticationRequest();
 }
 
-void MainWindow::onAuthenticationResponse()
+void MainWindow::onAuthenticationResponse(AuthenticationState response)
 {
-    qDebug() << "response";
-    ui->textBrowserResponse->setText("response " + m_clientLogin->statusCode());
+    QString report;
+
+    if (response == SuccessfullAuthentication) {
+        report.append("Success\n ");
+        report.append(m_clientLogin->authenticationToken());
+    } else if (response == FailedAuthentication) {
+        report.append("Failure");
+    } else if (response == CaptchaRequired) {
+        report.append("Captcha! Solve the puzzle at https://www.google.com/accounts/DisplayUnlockCaptcha");
+    } else if (response == NetworkError) {
+        report.append("Network Error");
+    }
+    ui->textBrowserResponse->setText(report);
+    ui->pushButtonGo->setEnabled(true);
 }
