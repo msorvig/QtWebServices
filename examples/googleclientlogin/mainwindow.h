@@ -2,7 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include <qtclientlogin.h>
+#include <qtgoogleclientlogin.h>
 
 namespace Ui {
     class MainWindow;
