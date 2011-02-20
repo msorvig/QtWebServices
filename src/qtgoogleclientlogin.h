@@ -23,7 +23,7 @@ enum AuthenticationState {
     PendingAuthentication,      // lookup in progress, wait.
     SuccessfullAuthentication,  // login and password was accepted, read authenticationToken for key
     FailedAuthentication,       // login or password mismatch.
-    CaptchaRequired,             // display captcha, set answer, call sendAuthenticationRequest again.
+    CaptchaRequired,            // [display captcha, set answer, call sendAuthenticationRequest again. NOT IMPLEMENTED]
                                 // alternatively, have the user solve the captcha at
                                 // https://www.google.com/accounts/DisplayUnlockCaptcha
     NetworkError                // network on fire.

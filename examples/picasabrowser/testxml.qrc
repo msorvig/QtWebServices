@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/xml">
+        <file>albumlisting.txt</file>
+        <file>photolisting.txt</file>
+    </qresource>
+</RCC>
