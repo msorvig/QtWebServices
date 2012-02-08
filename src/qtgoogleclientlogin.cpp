@@ -16,6 +16,21 @@ QtGoogleClientLogin::~QtGoogleClientLogin()
     delete m_networkAccessManager;
 }
 
+void QtGoogleClientLogin::setSettingsKey(const QString &key)
+{
+    m_settingsKey = key;
+    QSettings settings;
+    settings.beginGroup(m_settingsKey);
+    m_login = settings.value("user1").toString();
+    m_password = settings.value("user2").toString();
+    settings.endGroup();
+}
+
+bool QtGoogleClientLogin::isConfiguredWithSettings() const
+{
+    return !m_login.isEmpty() && !m_password.isEmpty();
+}
+
 void QtGoogleClientLogin::setLogin(const QString &login)
 {
     m_login = login;
@@ -39,6 +54,15 @@ void QtGoogleClientLogin::setSourceName(const QString &sourceName)
 void QtGoogleClientLogin::setCaptchaAnswer(const QString &captchaAnswer)
 {
     m_captchaAnswer = captchaAnswer;
+}
+
+AuthenticationState QtGoogleClientLogin::authenticate()
+{
+    sendAuthenticationRequest();
+    QEventLoop loop;
+    QObject::connect(this, SIGNAL(authenticationResponse(AuthenticationState)), &loop, SLOT(quit()));
+    loop.exec();
+    return m_authenticationState;
 }
 
 void QtGoogleClientLogin::sendAuthenticationRequest()
@@ -91,6 +115,14 @@ void QtGoogleClientLogin::replyFinished(QNetworkReply *reply)
        m_authenticationState = NetworkError;
     } else {
         m_authenticationState = SuccessfullAuthentication;
+        // Save login details on successful auth
+        if (!m_settingsKey.isEmpty()) {
+            QSettings settings;
+            settings.beginGroup(m_settingsKey);
+            settings.setValue("user1", QVariant(m_login));
+            settings.setValue("user2", QVariant(m_password));
+            settings.endGroup();
+        }
     }
     emit authenticationResponse(m_authenticationState);
 }

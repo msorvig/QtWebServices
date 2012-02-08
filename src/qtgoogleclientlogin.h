@@ -35,10 +35,15 @@ public:
     explicit QtGoogleClientLogin(QObject *parent = 0);
     ~QtGoogleClientLogin();
 
+    void setSettingsKey(const QString &key);
+    bool isConfiguredWithSettings() const;
+
     void setLogin(const QString &login);
     void setPassword(const QString &password);
     void setServiceName(const QString &serviceName);
     void setSourceName(const QString &serviceName);
+
+    AuthenticationState authenticate(); // blocks
 
     void sendAuthenticationRequest();
 
@@ -57,6 +62,7 @@ private slots:
     void slotSslErrors(QList<QSslError>);
 private:
     QNetworkAccessManager *m_networkAccessManager;
+    QString m_settingsKey;
     QString m_login;
     QString m_password;
     QString m_serviceName;

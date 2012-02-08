@@ -1,6 +1,9 @@
 #include "qtpicasaweb.h"
+#include "feedxmlparser.h"
+#include "albumxmlparser.h"
+#include "blockingnetworkaccessmanager.h"
 #include <QtCore>
-#include <QtXml>
+
 
 // Headers:
 // GData-Version: 2
@@ -14,107 +17,49 @@
 QtPicasaWeb::QtPicasaWeb(QObject *parent) :
     QObject(parent)
 {
+    m_networkAccessManager = new BlockingNetworkAccessManager(this);
 }
 
-class AlbumXmlHandler : public QXmlDefaultHandler
+QtPicasaWeb::~QtPicasaWeb()
 {
-public:
-    QtPicasaAlbum album;
-    QtPicasaImage currentImage;
-    enum Mode { Base, AlbumTitle, Group, ImageTitle, ImageDescription };
-    QStack<Mode> mode;
+    delete m_networkAccessManager;
+}
 
-    AlbumXmlHandler()
-        :QXmlDefaultHandler()
-    {
-        mode.push(Base);
-    }
+void QtPicasaWeb::setAuthenticationToken(const QByteArray &authenticationToken)
+{
+    m_authenticationToken = authenticationToken;
+}
 
-    bool fatalError (const QXmlParseException & exception)
-    {
-        qWarning() << "Fatal error on line" << exception.lineNumber()
-                   << ", column" << exception.columnNumber() << ":"
-                   << exception.message() << exception.publicId();
+QString QtPicasaWeb::requestFeed()
+{
+    QNetworkRequest request(QUrl("https://picasaweb.google.com/data/feed/api/user/default"));
+    request.setRawHeader("GData-Version", "2");
+    request.setRawHeader("Authorization", "GoogleLogin " + m_authenticationToken.toLatin1());
+    QNetworkReply *reply = m_networkAccessManager->syncGet(request);
+    reply->deleteLater();
+    // ### error handling
+    return reply->readAll();
+}
 
-        return true;
-    }
+QString QtPicasaWeb::requestAlbum(const QString &albumId)
+{
+    QNetworkRequest request(QUrl("https://picasaweb.google.com/data/feed/api/user/default/albumid/" + albumId.toLatin1()));
+    request.setRawHeader("GData-Version", "2");
+    request.setRawHeader("Authorization", "GoogleLogin " + m_authenticationToken.toLatin1());
+    QNetworkReply *reply = m_networkAccessManager->syncGet(request);
+    reply->deleteLater();
+    // ### error handling
+    return reply->readAll();
+}
 
-    bool startElement ( const QString & namespaceURI, const QString & localName, const QString & qName, const QXmlAttributes & atts )
-    {
-        if (localName == "group") {
-            //qDebug() << "start element" << localName << atts.count();
-            mode.push(Group);
-            currentImage = QtPicasaImage();
-        }
-
-        if (mode.top() == Group) {
-            if (localName == "title") {
-                mode.push(ImageTitle);
-            }
-            if (localName == "description") {
-                mode.push(ImageDescription);
-            }
-            if (localName == "content") {
-                currentImage.url = atts.value("url");
-            }
-            if (localName == "thumbnail") {
-                currentImage.thumbnailUrl = atts.value("url");
-            }
-        }
-        return true;
-    }
-
-    bool characters ( const QString & string )
-    {
-        if (mode.top() == ImageTitle) {
-            currentImage.title = string;
-        }
-        if (mode.top() == ImageDescription) {
-            currentImage.description = string;
-        }
-        return true;
-    }
-
-    bool endElement ( const QString & namespaceURI, const QString & localName, const QString & qName )
-    {
-        if (localName == "group") {
-            //qDebug() << "end element" << localName;
-            mode.pop();
-
-            qDebug() << "Add image" << currentImage.title << currentImage.description
-                                    << currentImage.url << currentImage.thumbnailUrl;
-
-            album.images.append(currentImage);
-        }
-
-        if (mode.top() == ImageTitle && localName == "title") {
-            mode.pop();
-        }
-        if (mode.top() == ImageDescription && localName == "description") {
-            mode.pop();
-        }
-
-        return true;
-    }
-
-};
+QtPicasaFeed QtPicasaWeb::parseFeedXml(const QByteArray &xml)
+{
+    FeedXmlHandler parser;
+    return parser.parseFeedXml(xml);
+}
 
 QtPicasaAlbum QtPicasaWeb::parseAlbumXml(const QByteArray &xml)
 {
-    QtPicasaAlbum album;
-    qDebug() << "QtPicasaWeb::parseAlbumXm got" << xml.count() << "bytes";
-
-
-    QBuffer xmlBuffer;
-    xmlBuffer.setData(xml);
-    QXmlSimpleReader xmlReader;
-    QXmlInputSource *source = new QXmlInputSource(&xmlBuffer);
-    AlbumXmlHandler *handler = new AlbumXmlHandler();
-    xmlReader.setContentHandler(handler);
-    xmlReader.setErrorHandler(handler);
-
-    bool ok = xmlReader.parse(source);
-    qDebug() << "xml parse ok" << ok;
-
-    return album;
+    AlbumXmlHandler parser;
+    return parser.parseAlbumXml(xml);
 }
