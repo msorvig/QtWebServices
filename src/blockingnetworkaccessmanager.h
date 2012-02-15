@@ -6,10 +6,9 @@
 class BlockingNetworkAccessManager : public QNetworkAccessManager
 {
 public:
-    BlockingNetworkAccessManager(QObject *parent);
+    BlockingNetworkAccessManager(QObject *parent = 0);
 
     QNetworkReply *syncGet(const QNetworkRequest &request);
-
 private slots:
     void replyFinished(QNetworkReply *);
 };

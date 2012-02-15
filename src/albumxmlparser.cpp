@@ -1,94 +1,118 @@
 #include "albumxmlparser.h"
 
+
+AlbumXmlHandler::AlbumXmlHandler()
+{
+
+}
+
 QtPicasaAlbum AlbumXmlHandler::parseAlbumXml(const QByteArray &xml)
 {
-    QtPicasaAlbum album;
-    qDebug() << "QtPicasaWeb::parseAlbumXm got" << xml.count() << "bytes";
+    addData(xml);
 
-    QBuffer xmlBuffer;
-    xmlBuffer.setData(xml);
-    QXmlSimpleReader xmlReader;
-    QXmlInputSource *source = new QXmlInputSource(&xmlBuffer);
-    AlbumXmlHandler *handler = new AlbumXmlHandler();
-    xmlReader.setContentHandler(handler);
-    xmlReader.setErrorHandler(handler);
-
-    bool ok = xmlReader.parse(source);
-    qDebug() << "xml parse ok" << ok;
-
+    while (readNextStartElement()) {
+        //qDebug() << "element" << name() << qualifiedName();
+        if (name() == "feed")
+            parseFeed();
+        else
+            skipCurrentElement();
+    }
     return album;
 }
 
-AlbumXmlHandler::AlbumXmlHandler()
-    :QXmlDefaultHandler()
+void AlbumXmlHandler::parseFeed()
 {
-    mode.push(Base);
+    while (readNextStartElement()) {
+        //qDebug() << "feed element" << name() << qualifiedName();
+        if (name() == "entry")
+            parseEntry();
+        else
+            skipCurrentElement();
+    }
 }
 
-bool AlbumXmlHandler::fatalError (const QXmlParseException & exception)
+void AlbumXmlHandler::parseEntry()
 {
-    qWarning() << "Fatal error on line" << exception.lineNumber()
-               << ", column" << exception.columnNumber() << ":"
-               << exception.message() << exception.publicId();
-
-    return true;
+    QtPicasaImage image;
+    //qDebug() << " ";
+    while (readNextStartElement()) {
+    //   qDebug() << "entry element" << name() << qualifiedName();
+       if (qualifiedName() == "media:group") {
+            parseMediaGroup(&image);
+       } else if (name() == "title") {
+            image.title = readElementText();
+            //qDebug() << "title" << image.title;
+       } else if (qualifiedName() == "gphoto:id") {
+            image.id = readElementText();
+       } else if (qualifiedName() == "gphoto:albumid") {
+            image.albumid = readElementText();
+       } else if (qualifiedName() == "gphoto:width") {
+            image.width = readElementText().toInt();
+       } else if (qualifiedName() == "gphoto:height") {
+            image.height = readElementText().toInt();
+       } else if (qualifiedName() == "gphoto:size") {
+            image.size = readElementText().toInt();
+       } else if (qualifiedName() == "gphoto:timestamp") {
+            image.timestamp = readElementText().toLongLong();
+       } else {
+            skipCurrentElement();
+       }
+    }
+    //qDebug() << "append image";
+    album.images.append(image);
 }
 
-bool AlbumXmlHandler::startElement ( const QString & namespaceURI, const QString & localName, const QString & qName, const QXmlAttributes & atts )
+void AlbumXmlHandler::parseLink()
 {
-    if (localName == "group") {
-        //qDebug() << "start element" << localName << atts.count();
-        mode.push(Group);
-        currentImage = QtPicasaImage();
+    while (readNextStartElement()) {
+        qDebug() << "link element" << name() << qualifiedName();
+         skipCurrentElement();
     }
-
-    if (mode.top() == Group) {
-        if (localName == "title") {
-            mode.push(ImageTitle);
-        }
-        if (localName == "description") {
-            mode.push(ImageDescription);
-        }
-        if (localName == "content") {
-            currentImage.url = atts.value("url");
-        }
-        if (localName == "thumbnail") {
-            currentImage.thumbnailUrl = atts.value("url");
-        }
-    }
-    return true;
 }
 
-bool AlbumXmlHandler::characters ( const QString & string )
+void AlbumXmlHandler::parseMediaGroup(QtPicasaImage *image)
 {
-    if (mode.top() == ImageTitle) {
-        currentImage.title = string;
+    while (readNextStartElement()) {
+        if (0) {
+#if 0
+        } else if (qualifiedName() == "media:content") {
+         //   QString text = readElementText();
+         //   qDebug() << "media:content" << text;
+        } else if (qualifiedName() == "media:credit") {
+            QString text = readElementText();
+         //   qDebug() << "media:credit" << text;
+        } else if (qualifiedName() == "media:description") {
+            QString text = readElementText();
+         //   qDebug() << "media:description" << text;
+        } else if (qualifiedName() == "media:keywords") {
+            QString text = readElementText();
+         //   qDebug() << "media:keywords" << text;
+#endif
+        } else if (qualifiedName() == "media:thumbnail") {
+            parseThumbnail(image);
+//        } else if (qualifiedName() == "media:title") {
+//            QString text = readElementText();
+         //   qDebug() << "media:title" << text;
+        } else {
+            skipCurrentElement();
+        }
     }
-    if (mode.top() == ImageDescription) {
-        currentImage.description = string;
-    }
-    return true;
 }
 
-bool AlbumXmlHandler::endElement ( const QString & namespaceURI, const QString & localName, const QString & qName )
+void AlbumXmlHandler::parseThumbnail(QtPicasaImage *image)
 {
-    if (localName == "group") {
-        //qDebug() << "end element" << localName;
-        mode.pop();
-
-        qDebug() << "Add image" << currentImage.title << currentImage.description
-                                << currentImage.url << currentImage.thumbnailUrl;
-
-        album.images.append(currentImage);
+    QtPicasaThumbnail thumnail;
+    foreach (QXmlStreamAttribute att, attributes()) {
+        if (0) {
+        } else if (att.name() == "width") {
+            thumnail.width = att.value().toString().toInt();
+        } else if (att.name() == "height") {
+            thumnail.height = att.value().toString().toInt();
+        } else if (att.name() == "url") {
+            thumnail.url = att.value().toString();
+        }
     }
-
-    if (mode.top() == ImageTitle && localName == "title") {
-        mode.pop();
-    }
-    if (mode.top() == ImageDescription && localName == "description") {
-        mode.pop();
-    }
-
-    return true;
+    skipCurrentElement();
+    image->thumbnails.append(thumnail);
 }
 

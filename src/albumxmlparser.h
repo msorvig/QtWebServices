@@ -2,25 +2,24 @@
 #include "picasatypes.h"
 
 #include <QtXml>
+#include <QtCore/qxmlstream.h>
 
 #ifndef ALBUMXMLPARSER_H
 #define ALBUMXMLPARSER_H
 
-class AlbumXmlHandler : public QXmlDefaultHandler
+class AlbumXmlHandler: public QXmlStreamReader
 {
 public:
     AlbumXmlHandler();
     QtPicasaAlbum parseAlbumXml(const QByteArray &xml);
 private:
-    bool fatalError (const QXmlParseException & exception);
-    bool startElement ( const QString & namespaceURI, const QString & localName, const QString & qName, const QXmlAttributes & atts );
-    bool characters ( const QString & string );
-    bool endElement ( const QString & namespaceURI, const QString & localName, const QString & qName );
+    void parseFeed();
+    void parseEntry();
+    void parseLink();
+    void parseMediaGroup(QtPicasaImage *image);
+    void parseThumbnail(QtPicasaImage *image);
 
     QtPicasaAlbum album;
-    QtPicasaImage currentImage;
-    enum Mode { Base, AlbumTitle, Group, ImageTitle, ImageDescription };
-    QStack<Mode> mode;
 };
 
 #endif

@@ -3,6 +3,7 @@
 
 #include "qtgoogleclientlogin.h"
 #include "qtpicasaweb.h"
+#include "blockingnetworkaccessmanager.h"
 
 void writeFile(const QString &fileName, const QByteArray &data)
 {
@@ -103,29 +104,111 @@ QList<QtPicasaAlbum> parseAlbums()
 
     foreach (const QString &albumFileName, albumFiles) {
         QByteArray albumXml = readFile("data/" + albumFileName);
-        qDebug() << "parseFeed read" << albumXml.count() << "bytes";
+        qDebug() << "parseAlbum " << albumFileName << "read" << albumXml.count() << "bytes";
 
         QtPicasaWeb picasa;
         QtPicasaAlbum album = picasa.parseAlbumXml(albumXml);
+        qDebug() << "got images" << album.images.count();
         albums.append(album);
     }
     return albums;
 }
 
+QSet<QString> seenImageIds; // sanity check;
+
+void loadThumbnails(const QByteArray authenticationToken, QtPicasaAlbum album)
+{
+    qDebug() << "load thumbnails for" << album.title << album.images.count();
+    BlockingNetworkAccessManager BAM;
+
+    QString thumbnailDir = "data/thumbnails/";
+    foreach (QtPicasaImage image, album.images) {
+        // Continue if there are no thumbnails for this image
+        if (image.thumbnails.isEmpty())
+            continue;
+
+        QtPicasaThumbnail thumbnail = image.thumbnails.at(0);
+        QString thumbNailId = image.id + "-" + QString::number(thumbnail.width) + "-" + QString::number(thumbnail.height);
+
+        // Continue if the file exists
+        QFile thumbnailFile(thumbnailDir + thumbNailId + ".jpg"); // #### file type
+        if (thumbnailFile.exists()) {
+            qDebug() << "skip thumbnail" << image.id << thumbnail.url;
+            continue;
+        }
+
+        qDebug() << "load thumbnail" << image.id << thumbnail.url;
+
+        QNetworkRequest request(QUrl(thumbnail.url));
+        request.setRawHeader("GData-Version", "2");
+        request.setRawHeader("Authorization", "GoogleLogin " + authenticationToken);
+
+        QNetworkReply *reply = BAM.syncGet(request);
+        reply->deleteLater();
+        // ### error handling
+        QByteArray data = reply->readAll();
+        qDebug() << "got" << data.count() << "bytes";
+
+        // Continue if there was no data
+        if (data.count() == 0)
+            continue;
+
+        thumbnailFile.open(QIODevice::WriteOnly | QIODevice::Truncate);
+        thumbnailFile.write(data);
+    }
+}
+
+void loadThumbnails(const QByteArray authenticationToken, QList<QtPicasaAlbum> albums)
+{
+    seenImageIds.clear();
+    foreach (QtPicasaAlbum album, albums) {
+        loadThumbnails(authenticationToken, album);
+    }
+}
+
+bool timesort(const QtPicasaImage &a, const QtPicasaImage &b)
+{
+    return (a.timestamp < b.timestamp);
+}
+
+QList<QtPicasaImage> createSortedImageList(QList<QtPicasaAlbum> albums)
+{
+    QList<QtPicasaImage> images;
+    foreach (QtPicasaAlbum album, albums) {
+        images.append(album.images);
+    }
+
+    qSort(images.begin(), images.end(), timesort);
+
+    return images;
+}
+
+void printImageDates(QList<QtPicasaImage> images)
+{
+    foreach (QtPicasaImage image, images) {
+        qDebug() << "image" << image.id << "date" << QDateTime::fromMSecsSinceEpoch(image.timestamp).toString();
+    }
+}
 
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
 
     QByteArray token = signIn();
-    loadFeedXml(token);
+    //loadFeedXml(token);
 
-    QtPicasaFeed feed = parseFeed();
+    //QtPicasaFeed feed = parseFeed();
     //qDebug() << "feed" << feed;
-    loadAlbums(token, feed);
+    //loadAlbums(token, feed);
 
     QList<QtPicasaAlbum> albums = parseAlbums();
     //qDebug() << "albums" << albums;
+   // loadThumbnails(token, albums);
+    QList<QtPicasaImage> images = createSortedImageList(albums);
+    qDebug() << "Total image count" << images.count();
+    printImageDates(images);
+
+
 }
 
 
