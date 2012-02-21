@@ -52,6 +52,18 @@ QString QtPicasaWeb::requestAlbum(const QString &albumId)
     return reply->readAll();
 }
 
+QByteArray QtPicasaWeb::requestThumbnail(const QString &url)
+{
+    QUrl u(url);
+    QNetworkRequest request(u);
+    request.setRawHeader("GData-Version", "2");
+    request.setRawHeader("Authorization", "GoogleLogin " + m_authenticationToken.toLatin1());
+    QNetworkReply *reply = m_networkAccessManager->syncGet(request);
+    reply->deleteLater();
+    // ### error handling
+    return reply->readAll();
+}
+
 QtPicasaFeed QtPicasaWeb::parseFeedXml(const QByteArray &xml)
 {
     FeedXmlHandler parser;

@@ -24,6 +24,7 @@ public:
 
     QString requestFeed();
     QString requestAlbum(const QString &albumId);
+    QByteArray requestThumbnail(const QString &url);
 
     // xml parsing
     QtPicasaFeed parseFeedXml(const QByteArray &xmldata);
