@@ -14,3 +14,5 @@ HEADERS += $$PWD/qtgoogleclientlogin.h  \
            $$PWD/albumxmlparser.h \
            $$PWD/picasatypes.h \
            $$PWD/blockingnetworkaccessmanager.h \
+
+QT += xml
