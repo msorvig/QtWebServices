@@ -121,8 +121,9 @@ void QtPicasaLoader::downloadThumbnails(const QtPicasaAlbum &album)
         if (image.thumbnails.isEmpty())
             continue;
 
-        QtPicasaThumbnail thumbnail = image.thumbnails.at(0);
-        QString thumbnailPath = thumbnailDiskPath(thumbnail);
+        const int thumbnailIndex = 0;
+        QtPicasaThumbnail thumbnail = image.thumbnails.at(thumbnailIndex);
+        QString thumbnailPath = thumbnailDiskPath(image, thumbnailIndex);
 
         // Continue if the file exists
         QFile thumbnailFile(thumbnailPath);
@@ -154,8 +155,11 @@ QString QtPicasaLoader::imageDiskPath(const QtPicasaImage &image)
     return m_storagePath + "/images/" + image.id + ".jpg"; // #### file type
 }
 
-QString QtPicasaLoader::thumbnailDiskPath(const QtPicasaThumbnail &thumbnail)
+QString QtPicasaLoader::thumbnailDiskPath(const QtPicasaImage &image, int thumbnailIndex)
 {
+    if (thumbnailIndex < 0 || thumbnailIndex >= image.thumbnails.count())
+        return QString();
+    QtPicasaThumbnail thumbnail = image.thumbnails.at(thumbnailIndex);
     QString thumbNailId = image.id + "-" + QString::number(thumbnail.width) + "-" + QString::number(thumbnail.height);
     return m_storagePath + "/thumbnails/" + thumbNailId + ".jpg"; // #### file type
 }
