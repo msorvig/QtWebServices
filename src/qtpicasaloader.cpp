@@ -116,17 +116,16 @@ QList<QtPicasaAlbum> QtPicasaLoader::parseAlbums()
 void QtPicasaLoader::downloadThumbnails(const QtPicasaAlbum &album)
 {
     qDebug() << "load thumbnails for" << album.title << album.images.count();
-    QString thumbnailDir = m_storagePath + "/thumbnails/";
     foreach (QtPicasaImage image, album.images) {
         // Continue if there are no thumbnails for this image
         if (image.thumbnails.isEmpty())
             continue;
 
         QtPicasaThumbnail thumbnail = image.thumbnails.at(0);
-        QString thumbNailId = image.id + "-" + QString::number(thumbnail.width) + "-" + QString::number(thumbnail.height);
+        QString thumbnailPath = thumbnailDiskPath(thumbnail);
 
         // Continue if the file exists
-        QFile thumbnailFile(thumbnailDir + thumbNailId + ".jpg"); // #### file type
+        QFile thumbnailFile(thumbnailPath);
         if (thumbnailFile.exists()) {
             qDebug() << "skip thumbnail" << image.id << thumbnail.url;
             continue;
@@ -149,3 +148,15 @@ void QtPicasaLoader::downloadThumbnails(const QList<QtPicasaAlbum> &albums)
         downloadThumbnails(album);
     }
 }
+
+QString QtPicasaLoader::imageDiskPath(const QtPicasaImage &image)
+{
+    return m_storagePath + "/images/" + image.id + ".jpg"; // #### file type
+}
+
+QString QtPicasaLoader::thumbnailDiskPath(const QtPicasaThumbnail &thumbnail)
+{
+    QString thumbNailId = image.id + "-" + QString::number(thumbnail.width) + "-" + QString::number(thumbnail.height);
+    return m_storagePath + "/thumbnails/" + thumbNailId + ".jpg"; // #### file type
+}
+

@@ -38,6 +38,9 @@ public:
 
     void downloadThumbnails(const QtPicasaAlbum &album);
     void downloadThumbnails(const QList<QtPicasaAlbum> &albums);
+    QString thumbnailDiskPath(const QtPicasaThumbnail &thumbnail);
+
+    QString imageDiskPath(const QtPicasaImage &image);
 private:
     QString m_storagePath;
     QString m_appSourceName;
