@@ -13,7 +13,7 @@ PicasaBrowser::PicasaBrowser(QWidget *parent) :
     // testing
     QFile albumXml(":/xml/albumlisting.txt");
     albumXml.open(QIODevice::ReadOnly);
-    qtPicasaWeb->parseAlbumXml(albumXml.readAll());
+    qtPicasaWeb->parseFeedXml(albumXml.readAll());
 }
 
 PicasaBrowser::~PicasaBrowser()

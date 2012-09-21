@@ -48,6 +48,8 @@ int main(int argc, char *argv[])
 
     loader.downloadAlbums(feed);
     QList<QtPicasaAlbum> albums = loader.parseAlbums();
+    loader.saveAlbums(albums);
+    QList<QtPicasaAlbum> albums = loader.loadAlbums();
     loader.downloadThumbnails(albums);
 
     QList<QtPicasaImage> images = createSortedImageList(albums);

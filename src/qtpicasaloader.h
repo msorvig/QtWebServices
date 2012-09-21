@@ -32,9 +32,15 @@ public:
 
     void downloadFeedXml();
     QtPicasaFeed parseFeed();
+    void saveFeed(const QtPicasaFeed &feed);
+    QtPicasaFeed loadFeed();
 
     void downloadAlbums(const QtPicasaFeed &feed);
     QList<QtPicasaAlbum> parseAlbums();
+
+    void saveAlbum(const QtPicasaAlbum &album);
+    QtPicasaAlbum loadAlbum(const QString &fileName) const;
+    QList<QtPicasaAlbum> loadAlbums() const;
 
     void downloadThumbnails(const QtPicasaAlbum &album);
     void downloadThumbnails(const QList<QtPicasaAlbum> &albums);

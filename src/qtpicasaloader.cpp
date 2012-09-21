@@ -73,6 +73,28 @@ QtPicasaFeed QtPicasaLoader::parseFeed()
     return m_picasa.parseFeedXml(feedXml);
 }
 
+void QtPicasaLoader::saveFeed(const QtPicasaFeed &feed)
+{
+    QByteArray data;
+    QBuffer buff(&data);
+    QDataStream stream(&buff);
+    stream << feed;
+
+    QString fileName = m_storagePath + "/feed.bin";
+    writeFile(fileName, data);
+}
+
+QtPicasaFeed QtPicasaLoader::loadFeed()
+{
+    QByteArray data = readFile(m_storagePath + "/feed.bin");
+    QBuffer buff(&data);
+    QDataStream stream(&buff);
+
+    QtPicasaFeed feed;
+    stream >> feed;
+    return feed;
+}
+
 void QtPicasaLoader::downloadAlbums(const QtPicasaFeed &feed)
 {
     qDebug() << "loadAlbums" << feed.albumMetas.count();
@@ -112,6 +134,40 @@ QList<QtPicasaAlbum> QtPicasaLoader::parseAlbums()
     }
     return albums;
 }
+
+void QtPicasaLoader::saveAlbum(const QtPicasaAlbum &album)
+{
+    QByteArray data;
+    QBuffer buff(&data);
+    QDataStream stream(&buff);
+    stream << album;
+
+    QString fileName = m_storagePath + "/album" + album.title + "bin";
+    writeFile(fileName, data);
+}
+
+QtPicasaAlbum QtPicasaLoader::loadAlbum(const QString &fileName) const
+{
+    QByteArray data = readFile(fileName);
+    QBuffer buff(&data);
+    QDataStream stream(&buff);
+
+    QtPicasaAlbum album;
+    stream >> album;
+    return album;
+}
+
+QList<QtPicasaAlbum> QtPicasaLoader::loadAlbums() const
+{
+/*
+    QList<QtPicasaAlbum> albums;
+    QStringList albumFiles = QDir(m_storagePath).entryList(QStringList() << "album-bin*");
+    foreach (QString albumFiles, albumFiles) {
+        album
+    }
+*/
+}
+
 
 void QtPicasaLoader::downloadThumbnails(const QtPicasaAlbum &album)
 {

@@ -52,4 +52,16 @@ QDebug operator<<(QDebug debug, const QtPicasaFeed &feed);
 QDebug operator<<(QDebug debug, const QtPicasaAlbumMeta &albumMeta);
 QDebug operator<<(QDebug debug, const QtPicasaAlbum &album);
 QDebug operator<<(QDebug debug, const QtPicasaImage &image);
+
+QDataStream &operator<<(QDataStream &out, const QtPicasaFeed &feed);
+QDataStream &operator>>(QDataStream &in, QtPicasaFeed &feed);
+QDataStream &operator<<(QDataStream &out, const QtPicasaAlbumMeta &albumMeta);
+QDataStream &operator>>(QDataStream &in, QtPicasaAlbumMeta &albumMeta4);
+QDataStream &operator<<(QDataStream &out, const QtPicasaAlbum &album);
+QDataStream &operator>>(QDataStream &in, QtPicasaAlbum &album);
+QDataStream &operator<<(QDataStream &out, const QtPicasaImage &image);
+QDataStream &operator>>(QDataStream &in, QtPicasaImage &image);
+QDataStream &operator<<(QDataStream &out, const QtPicasaThumbnail &thumbnail);
+QDataStream &operator>>(QDataStream &in, QtPicasaThumbnail &thumbnail);
+
 #endif
