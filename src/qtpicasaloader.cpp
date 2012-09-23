@@ -100,7 +100,7 @@ void QtPicasaLoader::downloadAlbums(const QtPicasaFeed &feed)
     qDebug() << "loadAlbums" << feed.albumMetas.count();
     // load new albums (those with no data file on disk)
     foreach (const QtPicasaAlbumMeta &albumMeta, feed.albumMetas) {
-        QString albumFileName = m_storagePath +"/album" + albumMeta.id.toAscii() + ".xml";
+        QString albumFileName = m_storagePath +"/album" + albumMeta.id.toLatin1() + ".xml";
         if (QFile(albumFileName).exists())
             continue;
 
@@ -113,7 +113,7 @@ void QtPicasaLoader::downloadAlbums(const QtPicasaFeed &feed)
     foreach (const QtPicasaAlbumMeta &albumMeta, feed.albumMetas) {
         QByteArray xml = m_picasa.requestAlbum(albumMeta.id).toUtf8();
         qDebug() << "loadAlbum" << albumMeta.title <<  "got" << xml.count() << "bytes";
-        QString albumFileName = m_storagePath +"/album" + albumMeta.id.toAscii() + ".xml";
+        QString albumFileName = m_storagePath +"/album" + albumMeta.id.toLatin1() + ".xml";
         writeFile(albumFileName, xml);
     }
 }

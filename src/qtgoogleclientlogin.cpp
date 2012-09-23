@@ -76,6 +76,8 @@ void QtGoogleClientLogin::sendAuthenticationRequest()
     request.setHeader(QNetworkRequest::ContentTypeHeader,"application/x-www-form-urlencoded");
 
     QByteArray data;
+    qFatal("port addQueryItem usage to Qt 5");
+/*
     QUrl params;
     params.addQueryItem("accountType", "HOSTED_OR_GOOGLE");
     params.addQueryItem("Email", m_login);
@@ -85,7 +87,7 @@ void QtGoogleClientLogin::sendAuthenticationRequest()
 
     data.append(params.toString());
     data.remove(0,1);
-
+*/
     m_reply = m_networkAccessManager->post(request, data);
     connect(m_reply, SIGNAL(error(QNetworkReply::NetworkError)),
             this, SLOT(slotError(QNetworkReply::NetworkError)));
