@@ -25,7 +25,7 @@ namespace aws {
       theSize(size)
     {
       for(unsigned int i=1;i<=size;i++){
-         push(createConnection(theAccessKeyId, theSecretAccessKey));
+         std::queue<T>::push(createConnection(theAccessKeyId, theSecretAccessKey));
       }
     }
 

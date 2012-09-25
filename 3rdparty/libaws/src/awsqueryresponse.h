@@ -16,6 +16,7 @@
 #ifndef AWS_AWSQUERYRESPONSE_H
 #define AWS_AWSQUERYRESPONSE_H
 
+#include <string>
 
 namespace aws
 {
