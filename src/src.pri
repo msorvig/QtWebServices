@@ -6,7 +6,6 @@ SOURCES += $$PWD/qtgoogleclientlogin.cpp \
            $$PWD/albumxmlparser.cpp \
            $$PWD/picasatypes.cpp \
            $$PWD/blockingnetworkaccessmanager.cpp \
-           $$PWD/qts3.cpp \
 
 HEADERS += $$PWD/qtgoogleclientlogin.h  \
            $$PWD/qtpicasaweb.h \
@@ -15,8 +14,5 @@ HEADERS += $$PWD/qtgoogleclientlogin.h  \
            $$PWD/albumxmlparser.h \
            $$PWD/picasatypes.h \
            $$PWD/blockingnetworkaccessmanager.h \
-           $$PWD/qts3.h \
-
-include ($$PWD/../3rdparty/libaws/libaws.pri)
 
 QT += xml
