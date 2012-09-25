@@ -302,7 +302,10 @@ S3Connection::put(const std::string& aBucketName,
       RequestHeaderMap lRequestHeaderMap;
       for (std::map<std::string, std::string>::const_iterator lIter = aMetaDataMap->begin();
            lIter != aMetaDataMap->end(); ++lIter) {
-        lRequestHeaderMap.addHeader("x-amz-meta-" + (*lIter).first, (*lIter).second);
+          // ### Qt : I want to set "real" headers like "Content-Encoding"
+          // std::cout << "header" << (*lIter).first << " " << (*lIter).second << std::endl;
+          // lRequestHeaderMap.addHeader("x-amz-meta-" + (*lIter).first, (*lIter).second);
+          lRequestHeaderMap.addHeader((*lIter).first, (*lIter).second);
       }
 
       makeRequest(aBucketName, PUT, &lWrapper, 0, &lRequestHeaderMap, lEscapedKey, &lObject);
@@ -358,7 +361,11 @@ S3Connection::put(const std::string& aBucketName,
       RequestHeaderMap lRequestHeaderMap;
       for (std::map<std::string, std::string>::const_iterator lIter = aMetaDataMap->begin();
            lIter != aMetaDataMap->end(); ++lIter) {
-        lRequestHeaderMap.addHeader("x-amz-meta-" + (*lIter).first, (*lIter).second);
+          // ### Qt : I want to set "real" headers like "Content-Encoding"
+          // std::cout << "header" << (*lIter).first << " " << (*lIter).second << std::endl;
+          // lRequestHeaderMap.addHeader("x-amz-meta-" + (*lIter).first, (*lIter).second);
+        lRequestHeaderMap.addHeader((*lIter).first, (*lIter).second);
+
       }
 
       makeRequest(aBucketName, PUT, &lWrapper, 0, &lRequestHeaderMap, lEscapedKey, &lObject);

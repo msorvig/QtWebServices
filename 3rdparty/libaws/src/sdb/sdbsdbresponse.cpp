@@ -17,6 +17,8 @@
 
 #include "sdb/sdbresponse.h"
 
+#include <sstream>
+
 using namespace aws;
 
 namespace aws {

@@ -7,7 +7,7 @@ DEPENDPATH += $$PWD/. \
 #             $$PWD/src/sdb \
 #             $$PWD/src/sqs
 
-INCLUDEPATH +=  $$PWD/.  $$PWD/include/ $$PWD/include/libaws
+INCLUDEPATH +=  $$PWD/.  $$PWD/include/ $$PWD/include/libaws $$PWD/src
     #$$PWD/src/sdb $$PWD/src/sqs
 
 # Input
@@ -60,7 +60,8 @@ HEADERS += $$PWD/src/awsconnection.h \
            $$PWD/src/sqs/sqshandler.h \
            $$PWD/src/sqs/sqsresponse.h
 
-SOURCES += $$PWD/src/awsconnection.cpp \
+SOURCES += $$PWD/src/awsversion.cpp \
+           $$PWD/src/awsconnection.cpp \
            $$PWD/src/awsquerycallback.cpp \
            $$PWD/src/awsqueryconnection.cpp \
            $$PWD/src/awstime.cpp \
@@ -76,23 +77,23 @@ SOURCES += $$PWD/src/awsconnection.cpp \
            $$PWD/src/api/mutex.cpp \
            $$PWD/src/api/s3connectionimpl.cpp \
            $$PWD/src/api/s3response.cpp \
-#          $$PWD/src/api/sdbconnectionimpl.cpp \
-#          $$PWD/src/api/sdbresponse.cpp \
-#          $$PWD/src/api/sqsconnectionimpl.cpp \
-#          $$PWD/src/api/sqsresponse.cpp \
+           $$PWD/src/api/sdbconnectionimpl.cpp \
+           $$PWD/src/api/sdbresponse.cpp \
+           $$PWD/src/api/sqsconnectionimpl.cpp \
+           $$PWD/src/api/sqsresponse.cpp \
            $$PWD/src/logging/logger.cc \
            $$PWD/src/logging/loggerconfig.cc \
            $$PWD/src/logging/loggermanager.cc \
-           $$PWD/src/s3/s3connection.cpp \
-           $$PWD/src/s3/s3exception.cpp \
-           $$PWD/src/s3/s3handler.cpp \
-           $$PWD/src/s3/s3object.cpp \
-           $$PWD/src/s3/s3response.cpp \
-#          $$PWD/src/sdb/sdbconnection.cpp \
-#          $$PWD/src/sdb/sdbexception.cpp \
-#          $$PWD/src/sdb/sdbhandler.cpp \
-#          $$PWD/src/sdb/sdbresponse.cpp \
-#          $$PWD/src/sqs/sqsconnection.cpp \
-#          $$PWD/src/sqs/sqsexception.cpp \
-#          $$PWD/src/sqs/sqshandler.cpp \
-#          $$PWD/src/sqs/sqsresponse.cpp
+           $$PWD/src/s3/s3s3connection.cpp \
+           $$PWD/src/s3/s3s3exception.cpp \
+           $$PWD/src/s3/s3s3handler.cpp \
+           $$PWD/src/s3/s3s3object.cpp \
+           $$PWD/src/s3/s3s3response.cpp \
+           $$PWD/src/sdb/sdbsdbconnection.cpp \
+           $$PWD/src/sdb/sdbsdbexception.cpp \
+           $$PWD/src/sdb/sdbsdbhandler.cpp \
+           $$PWD/src/sdb/sdbsdbresponse.cpp \
+           $$PWD/src/sqs/sqssqsconnection.cpp \
+           $$PWD/src/sqs/sqssqsexception.cpp \
+           $$PWD/src/sqs/sqssqshandler.cpp \
+           $$PWD/src/sqs/sqssqsresponse.cpp

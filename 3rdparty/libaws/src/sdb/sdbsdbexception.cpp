@@ -18,6 +18,8 @@
 #include <libaws/sdbexception.h>
 #include "sdb/sdbresponse.h"
 
+#include <sstream>
+
 namespace aws {
 
 	SDBException::SDBException(const QueryErrorResponse& aError) {
