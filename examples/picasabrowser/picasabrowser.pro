@@ -1,9 +1,8 @@
 include (../../src/src.pri)
-QT       += core gui network xmlpatterns xml
+QT       += core gui network xmlpatterns xml widgets
 
 TARGET = picasabrowser
 TEMPLATE = app
-
 
 SOURCES += main.cpp\
         picasabrowser.cpp \
