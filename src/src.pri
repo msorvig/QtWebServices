@@ -1,6 +1,5 @@
 INCLUDEPATH += $$PWD
-SOURCES += $$PWD/qtgoogleclientlogin.cpp \
-           $$PWD/qtgoogleoauthlogin.cpp \
+SOURCES += $$PWD/qtgoogleoauthlogin.cpp \
            $$PWD/qtpicasaweb.cpp \
            $$PWD/qtpicasaloader.cpp \
            $$PWD/feedxmlparser.cpp \
@@ -8,8 +7,7 @@ SOURCES += $$PWD/qtgoogleclientlogin.cpp \
            $$PWD/picasatypes.cpp \
            $$PWD/blockingnetworkaccessmanager.cpp \
 
-HEADERS += $$PWD/qtgoogleclientlogin.h  \
-           $$PWD/qtgoogleoauthlogin.h \
+HEADERS += $$PWD/qtgoogleoauthlogin.h \
            $$PWD/qtpicasaweb.h \
            $$PWD/qtpicasaloader.h \
            $$PWD/feedxmlparser.h \

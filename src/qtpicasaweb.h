@@ -20,10 +20,10 @@ public:
 
     // Log in first using QtGoogleClientLogin, get the authentication
     // token and pass that to this function.
-    void setAuthenticationToken(const QByteArray &authenticationToken);
+    void setAccessToken(const QString &accessToken);
 
-    QString requestFeed();
-    QString requestAlbum(const QString &albumId);
+    QByteArray requestFeed();
+    QByteArray requestAlbum(const QString &albumId);
     QByteArray requestThumbnail(const QString &url);
 
     // xml parsing
@@ -34,7 +34,7 @@ signals:
     void readyAlbumRequest();
 
 private:
-    QString m_authenticationToken;
+    QString m_accessToken;
     BlockingNetworkAccessManager *m_networkAccessManager;
     QString m_replyContents;
 };

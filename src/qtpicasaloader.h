@@ -2,7 +2,6 @@
 #define QTPICASALOADER_H
 
 #include "picasatypes.h"
-#include "qtgoogleclientlogin.h"
 #include "qtpicasaweb.h"
 #include <QtCore/QString>
 
@@ -23,12 +22,7 @@ class QtPicasaLoader
 public:
     QtPicasaLoader(const QString &storagePath);
 
-    void setApplicatonAPISourceName(const QString &sourceName);
-    void setSettingsKey(const QString &settingsKey);
-
-    AuthenticationState signIn(const QString &user, const QString &pass);
-    bool hasSignInCache();
-    AuthenticationState signInCached();
+    void setAccessToken(const QString &accessToken);
 
     void downloadFeedXml();
     QtPicasaFeed parseFeed();
@@ -49,9 +43,8 @@ public:
     QString imageDiskPath(const QtPicasaImage &image);
 private:
     QString m_storagePath;
-    QString m_appSourceName;
+    QString m_accessToken;
 
-    QtGoogleClientLogin m_clientLogin;
     QtPicasaWeb m_picasa;
 };
 

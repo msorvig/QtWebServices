@@ -25,27 +25,33 @@ QtPicasaWeb::~QtPicasaWeb()
     delete m_networkAccessManager;
 }
 
-void QtPicasaWeb::setAuthenticationToken(const QByteArray &authenticationToken)
+void QtPicasaWeb::setAccessToken(const QString &accessToken)
 {
-    m_authenticationToken = authenticationToken;
+    m_accessToken = accessToken;
 }
 
-QString QtPicasaWeb::requestFeed()
+QByteArray QtPicasaWeb::requestFeed()
 {
+    if (m_accessToken.isEmpty())
+        qWarning("QtPicasaWeb: Access token not set");
+
     QNetworkRequest request(QUrl("https://picasaweb.google.com/data/feed/api/user/default"));
     request.setRawHeader("GData-Version", "2");
-    request.setRawHeader("Authorization", "GoogleLogin " + m_authenticationToken.toLatin1());
+    request.setRawHeader("Authorization", "Bearer " + m_accessToken.toLatin1());
     QNetworkReply *reply = m_networkAccessManager->syncGet(request);
     reply->deleteLater();
     // ### error handling
     return reply->readAll();
 }
 
-QString QtPicasaWeb::requestAlbum(const QString &albumId)
+QByteArray QtPicasaWeb::requestAlbum(const QString &albumId)
 {
+    if (m_accessToken.isEmpty())
+        qWarning("QtPicasaWeb: Access token not set");
+
     QNetworkRequest request(QUrl("https://picasaweb.google.com/data/feed/api/user/default/albumid/" + albumId.toLatin1()));
     request.setRawHeader("GData-Version", "2");
-    request.setRawHeader("Authorization", "GoogleLogin " + m_authenticationToken.toLatin1());
+    request.setRawHeader("Authorization", "Bearer " + m_accessToken.toLatin1());
     QNetworkReply *reply = m_networkAccessManager->syncGet(request);
     reply->deleteLater();
     // ### error handling
@@ -54,10 +60,13 @@ QString QtPicasaWeb::requestAlbum(const QString &albumId)
 
 QByteArray QtPicasaWeb::requestThumbnail(const QString &url)
 {
+    if (m_accessToken.isEmpty())
+        qWarning("QtPicasaWeb: Access token not set");
+
     QUrl u(url);
     QNetworkRequest request(u);
     request.setRawHeader("GData-Version", "2");
-    request.setRawHeader("Authorization", "GoogleLogin " + m_authenticationToken.toLatin1());
+    request.setRawHeader("Authorization", "Bearer " + m_accessToken.toLatin1());
     QNetworkReply *reply = m_networkAccessManager->syncGet(request);
     reply->deleteLater();
     // ### error handling

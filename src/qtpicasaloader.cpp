@@ -20,47 +20,19 @@ QByteArray readFile(const QString &fileName)
 QtPicasaLoader::QtPicasaLoader(const QString &storagePath)
     :m_storagePath(storagePath)
 {
-    m_clientLogin.setServiceName("lh2"); // picasa
+    QDir().mkpath(m_storagePath);
+    qDebug() << "QtPicasaLoader storage path" << QDir(m_storagePath).absolutePath();
 }
 
-void QtPicasaLoader::setApplicatonAPISourceName(const QString &sourceName)
+void QtPicasaLoader::setAccessToken(const QString &accessToken)
 {
-    m_clientLogin.setSourceName(sourceName);
-}
-
-void QtPicasaLoader::setSettingsKey(const QString &settingsKey)
-{
-    m_clientLogin.setSettingsKey(settingsKey);
-}
-
-AuthenticationState QtPicasaLoader::signIn(const QString &user, const QString &pass)
-{
-    m_clientLogin.setLogin(user);
-    m_clientLogin.setPassword(pass);
-    return signInCached();
-}
-
-bool QtPicasaLoader::hasSignInCache()
-{
-    return m_clientLogin.isConfiguredWithSettings();
-}
-
-AuthenticationState QtPicasaLoader::signInCached()
-{
-    QtGoogleClientLogin clientLogin;
-    if (!clientLogin.isConfiguredWithSettings()) {
-        qDebug() << "User and password required";
-        return NoAuthentication;
-    }
-
-    return m_clientLogin.authenticate();
+    m_accessToken = accessToken;
+    m_picasa.setAccessToken(accessToken);
 }
 
 void QtPicasaLoader::downloadFeedXml()
 {
-    QtPicasaWeb picasa;
-    picasa.setAuthenticationToken(m_clientLogin.authenticationToken());
-    QByteArray xml = picasa.requestFeed().toUtf8();
+    QByteArray xml = m_picasa.requestFeed();
     qDebug() << "loadFeedXml got" << xml.count() << "bytes";
     writeFile(m_storagePath + "/feed.xml", xml);
 }
@@ -104,14 +76,14 @@ void QtPicasaLoader::downloadAlbums(const QtPicasaFeed &feed)
         if (QFile(albumFileName).exists())
             continue;
 
-        QByteArray xml = m_picasa.requestAlbum(albumMeta.id).toUtf8();
+        QByteArray xml = m_picasa.requestAlbum(albumMeta.id);
         qDebug() << "loadAlbum" << albumMeta.title <<  "got" << xml.count() << "bytes";
         writeFile(albumFileName, xml);
     }
 
     // load all albums
     foreach (const QtPicasaAlbumMeta &albumMeta, feed.albumMetas) {
-        QByteArray xml = m_picasa.requestAlbum(albumMeta.id).toUtf8();
+        QByteArray xml = m_picasa.requestAlbum(albumMeta.id);
         qDebug() << "loadAlbum" << albumMeta.title <<  "got" << xml.count() << "bytes";
         QString albumFileName = m_storagePath +"/album" + albumMeta.id.toLatin1() + ".xml";
         writeFile(albumFileName, xml);
