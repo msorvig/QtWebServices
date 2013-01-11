@@ -4,11 +4,11 @@
 #include <qtgoogleoauthlogin.h>
 #include "qtwebview.h"
 
-class LoginWidget : public QWidget
+class QtGoogleLoginWidget : public QWidget
 {
 Q_OBJECT
 public:
-    LoginWidget(QWidget *parentWidget = 0);
+    QtGoogleLoginWidget(QWidget *parentWidget = 0);
 Q_SIGNALS:
     void pageTitleChanged(const QString &pageTitle);
 public Q_SLOTS:

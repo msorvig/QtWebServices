@@ -46,7 +46,7 @@ void AppLogic::start()
 
 void AppLogic::displayLoginPage(const QUrl &rul)
 {
-    loginWidget = new LoginWidget();
+    loginWidget = new QtGoogleLoginWidget();
     loginWidget->move(50, 50);
     connect(loginWidget, SIGNAL(pageTitleChanged(QString)), SLOT(handleLoginPageLoad(QString)));
     loginWidget->displayLoginPage(login->authorizationUrl());

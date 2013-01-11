@@ -1,4 +1,5 @@
 include (../../src/src.pri)
+include (../../src/qtgoogleloginwidget.pri)
 include (../../../qtmacextras/src/qtmacextras.pri)
 
 OBJECTS_DIR=.obj
@@ -9,8 +10,7 @@ QT += core gui network widgets
 TARGET = googleoauthlogin
 TEMPLATE = app
 
-HEADERS += qtwebview.h loginwidget.h applogic.h
-OBJECTIVE_SOURCES += qtwebview.mm
-SOURCES += main.cpp loginwidget.cpp applogic.cpp
+HEADERS +=  applogic.h
+SOURCES += main.cpp  applogic.cpp
 
 LIBS += -framework WebKit

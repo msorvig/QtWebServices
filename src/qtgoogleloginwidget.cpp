@@ -1,6 +1,6 @@
-#include "loginwidget.h"
+#include "qtgoogleloginwidget.h"
 
-LoginWidget::LoginWidget(QWidget *parentWidget)
+QtGoogleLoginWidget::QtGoogleLoginWidget(QWidget *parentWidget)
     :QWidget(parentWidget)
 {
     webView = new QtWebView(this);
@@ -10,13 +10,13 @@ LoginWidget::LoginWidget(QWidget *parentWidget)
     connect(webView, SIGNAL(loadFinished(bool)), SLOT(pageLoadFinished(bool)));
 }
 
-void LoginWidget::displayLoginPage(const QUrl &loginUrl)
+void QtGoogleLoginWidget::displayLoginPage(const QUrl &loginUrl)
 {
     webView->load(loginUrl);
     show();
 }
 
-void LoginWidget::pageLoadFinished(bool ok)
+void QtGoogleLoginWidget::pageLoadFinished(bool ok)
 {
     QString webPageTitle = webView->title();
     if (webPageTitle.startsWith(QStringLiteral("Request for Permission")))

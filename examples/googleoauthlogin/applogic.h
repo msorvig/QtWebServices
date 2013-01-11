@@ -1,5 +1,5 @@
 #include <QtCore/QObject>
-#include "loginwidget.h"
+#include <qtgoogleloginwidget.h>
 
 class AppLogic : public QObject
 {
@@ -19,5 +19,5 @@ private:
     QtGoogleOAuthLogin *login;
     QWidget *window;
     QLabel *label;
-    LoginWidget *loginWidget;
+    QtGoogleLoginWidget *loginWidget;
 };
