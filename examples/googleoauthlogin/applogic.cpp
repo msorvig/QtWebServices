@@ -13,6 +13,7 @@ AppLogic::AppLogic()
     login->setRefreshToken(settings.value("refreshToken").toString());
     //login->setRefreshToken("foo");
 
+    connect(login, SIGNAL(displayLoginPage(QUrl)), SLOT(displayLoginPage(QUrl)));
     connect(login, SIGNAL(accessTokenReady(QString)), SLOT(accessTokenReady(QString)));
     connect(login, SIGNAL(refreshTokenReady(QString)), SLOT(refreshTokenReady(QString)));
     connect(login, SIGNAL(error(QString)), SLOT(error(QString)));
@@ -38,27 +39,23 @@ void AppLogic::start()
 
     layout->addWidget(label);
     window->setLayout(layout);
-
     window->show();
 
-    if (login->refreshToken().isEmpty()) {
-        loginWidget = new LoginWidget();
-        loginWidget->move(50, 50);
-        connect(loginWidget, SIGNAL(pageTitleChanged(QString)), SLOT(handleLoginPageLoad(QString)));
-        displayLoginPage();
-    } else {
-        login->initiaAccessFromRefreshToken(login->refreshToken());
-    }
+    login->initiateAccess();
 }
 
-void AppLogic::displayLoginPage()
+void AppLogic::displayLoginPage(const QUrl &rul)
 {
+    loginWidget = new LoginWidget();
+    loginWidget->move(50, 50);
+    connect(loginWidget, SIGNAL(pageTitleChanged(QString)), SLOT(handleLoginPageLoad(QString)));
     loginWidget->displayLoginPage(login->authorizationUrl());
 }
 
 void AppLogic::handleLoginPageLoad(const QString &webPageTitle)
 {
     loginWidget->hide();
+    delete loginWidget;
     login->initiateAccessFromLoginWebPageTitle(webPageTitle);
 }
 

@@ -108,6 +108,15 @@ QString QtGoogleOAuthLogin::getAuthorizationCodeFromWebPageTitle(const QString &
     return parts.at(1);
 }
 
+void QtGoogleOAuthLogin::initiateAccess()
+{
+    if (m_refreshToken.isEmpty()) {
+        emit displayLoginPage(authorizationUrl());
+    } else {
+        initiaAccessFromRefreshToken(m_refreshToken);
+    }
+}
+
 void QtGoogleOAuthLogin::initiateAccessFromLoginWebPageTitle(const QString &webPageTitle)
 {
     QtGoogleOAuthLogin::AuthorizationResult result = parseAuthorizationResponse(webPageTitle);

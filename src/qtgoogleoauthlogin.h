@@ -34,6 +34,7 @@ public:
     QUrl authorizationUrl() const;
 
     // Functions for initiation authorization and getting access tokens.
+    void initiateAccess();
     void initiateAccessFromLoginWebPageTitle(const QString &webPageTitle);
     void initiateAccessFromAuthorizationCode(const QString &authorizationCode);
     void initiaAccessFromRefreshToken(const QString &refreshToken);

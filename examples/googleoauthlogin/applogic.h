@@ -8,8 +8,9 @@ public:
     AppLogic();
     void start();
 
-    void displayLoginPage();
+
 private Q_SLOTS:
+    void displayLoginPage(const QUrl &rul);
     void handleLoginPageLoad(const QString &webPageTitle);
     void accessTokenReady(const QString &accessToken);
     void refreshTokenReady(const QString &refreshToken);
