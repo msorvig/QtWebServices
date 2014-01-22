@@ -1,5 +1,4 @@
 #include <QtWidgets/QtWidgets>
-#include <qtmaccocoaviewcontainer.h>
 
 #include "applogic.h"
 

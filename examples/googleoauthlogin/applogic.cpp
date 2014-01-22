@@ -11,7 +11,7 @@ AppLogic::AppLogic()
 
     QSettings settings;
     login->setRefreshToken(settings.value("refreshToken").toString());
-    //login->setRefreshToken("foo");
+    // Comment out refresh token to start login from scratch
 
     connect(login, SIGNAL(displayLoginPage(QUrl)), SLOT(displayLoginPage(QUrl)));
     connect(login, SIGNAL(accessTokenReady(QString)), SLOT(accessTokenReady(QString)));
@@ -48,6 +48,7 @@ void AppLogic::displayLoginPage(const QUrl &rul)
 {
     loginWidget = new QtGoogleLoginWidget();
     loginWidget->move(50, 50);
+    loginWidget->setWindowTitle("QtGoogleLoginWidget");
     connect(loginWidget, SIGNAL(pageTitleChanged(QString)), SLOT(handleLoginPageLoad(QString)));
     loginWidget->displayLoginPage(login->authorizationUrl());
 }

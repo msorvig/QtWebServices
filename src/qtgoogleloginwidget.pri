@@ -1,7 +1,7 @@
 INCLUDEPATH += $$PWD
 
-OBJECTIVE_SOURCES += $$PWD/qtwebview.mm
-SOURCES += $$PWD/qtgoogleloginwidget.cpp
+OBJECTIVE_SOURCES += $$PWD/qtwebview.mm \
+                     $$PWD/qtgoogleloginwidget.mm
 
 HEADERS += $$PWD/qtwebview.h \
            $$PWD/qtgoogleloginwidget.h \

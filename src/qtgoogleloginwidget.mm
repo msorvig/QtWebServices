@@ -4,7 +4,7 @@ QtGoogleLoginWidget::QtGoogleLoginWidget(QWidget *parentWidget)
     :QWidget(parentWidget)
 {
     webView = new QtWebView(this);
-    webViewContainer = new QtMacCocoaViewContainer(webView->nativeView(), this);
+    webViewContainer = new QMacCocoaViewContainer((NSView *)(webView->nativeView()), this);
     webViewContainer->setGeometry(0, 0, 500, 500);
 
     connect(webView, SIGNAL(loadFinished(bool)), SLOT(pageLoadFinished(bool)));

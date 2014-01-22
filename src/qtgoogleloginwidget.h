@@ -1,6 +1,6 @@
 #include <QtWidgets/QtWidgets>
+#include <QtWidgets/QMacCocoaViewContainer>
 
-#include <qtmaccocoaviewcontainer.h>
 #include <qtgoogleoauthlogin.h>
 #include "qtwebview.h"
 
@@ -17,5 +17,5 @@ private Q_SLOTS:
     void pageLoadFinished(bool ok);
 private:
     QtWebView *webView;
-    QtMacCocoaViewContainer *webViewContainer;
+    QMacCocoaViewContainer *webViewContainer;
 };

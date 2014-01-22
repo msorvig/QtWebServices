@@ -1,8 +1,8 @@
 #include <Cocoa/Cocoa.h>
 #include <WebKit/WebView.h>
 
-#include <qtmacconversion.h>
 #include "qtwebview.h"
+#include <QtCore/QString>
 
 @interface QtFrameLoadDelegate : NSObject {
     QtWebView *qtWebView;
@@ -48,12 +48,12 @@ QtWebView::QtWebView(QObject *parent)
 
 void QtWebView::load(const QUrl &url)
 {
-    [[webView mainFrame] loadRequest:[NSURLRequest requestWithURL:toNSURL(url)]];
+    [[webView mainFrame] loadRequest:[NSURLRequest requestWithURL:url.toNSURL()]];
 }
 
 QString QtWebView::title() const
 {
-    return toQString([webView mainFrameTitle]);
+    return QString::fromNSString([webView mainFrameTitle]);
 }
 
 void *QtWebView::nativeView()
