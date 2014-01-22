@@ -186,14 +186,17 @@ void QtGoogleOAuthLogin::replyFinished(QNetworkReply *reply)
     }
 
     QJsonObject object = doc.object();
-    if (object.contains(QStringLiteral("access_token"))) {
-        m_accessToken = object.value(QStringLiteral("access_token")).toString();
-        emit accessTokenReady(m_accessToken);
-    }
 
+    // Send the refresh token first to make sure it can be saved in case
+    // processing triggered by access_token crashes/hangs the app.
     if (object.contains(QStringLiteral("refresh_token"))) {
         m_refreshToken = object.value(QStringLiteral("refresh_token")).toString();
         emit refreshTokenReady(m_refreshToken);
+    }
+
+    if (object.contains(QStringLiteral("access_token"))) {
+        m_accessToken = object.value(QStringLiteral("access_token")).toString();
+        emit accessTokenReady(m_accessToken);
     }
 }
 
