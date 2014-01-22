@@ -1,5 +1,6 @@
 #include "applogic.h"
-
+#include "qtpicasaweb.h"
+#include "qtpicasaloader.h"
 #include <QtWidgets>
 
 AppLogic::AppLogic()
@@ -65,6 +66,18 @@ void AppLogic::accessTokenReady(const QString &accessToken)
     qDebug() << "accessTokenReady" << accessToken;
 
     label->setText(QStringLiteral("AccessToken: ") +  accessToken);
+/*
+    QtPicasaWeb picasaweb;
+    picasaweb.setAuthenticationToken(accessToken);
+    QByteArray feed = picasaweb.requestFeed();
+//    qDebug() << "feed" << feed.count();
+    picasaweb.parseFeedXml(feed);
+*/
+    QtPicasaLoader picasaLoader("temptemptemp");
+    picasaLoader.setAccessToken(accessToken);
+    picasaLoader.downloadFeedXml();
+    picasaLoader.parseFeed();
+
 }
 
 void AppLogic::refreshTokenReady(const QString &refreshToken)
