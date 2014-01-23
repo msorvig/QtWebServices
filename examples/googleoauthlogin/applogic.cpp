@@ -62,7 +62,7 @@ void AppLogic::loginCompleted(const QString &result)
     loginWindowController->hide();
     delete loginWindowController;
 #endif
-    login->initiateAccessFromLoginWebPageTitle(webPageTitle);
+    login->initiateAccessFromLoginWebPageTitle(result);
 }
 
 void AppLogic::accessTokenReady(const QString &accessToken)
