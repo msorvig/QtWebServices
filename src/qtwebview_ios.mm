@@ -24,21 +24,21 @@
 - (void)webViewDidStartLoad:(UIWebView *)webView
 {
     Q_UNUSED(webView);
-    qDebug() << "webViewDidStartLoad";
+//    qDebug() << "webViewDidStartLoad";
     emit QtWebView->loadStarted();
 }
 
 - (void)webViewDidFinishLoad:(UIWebView *)webView
 {
     Q_UNUSED(webView);
-    qDebug() << "webViewDidStartLoad";
+//    qDebug() << "webViewDidStartLoad";
     emit QtWebView->loadFinished(true);
 }
 
 - (void)webView:(UIWebView *)webView didFailLoadWithError:(NSError *)error
 {
     Q_UNUSED(webView);
-    qDebug() << "didFailLoadWithError";
+//    qDebug() << "didFailLoadWithError";
 }
 
 @end

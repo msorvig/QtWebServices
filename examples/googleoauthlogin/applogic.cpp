@@ -67,8 +67,7 @@ void AppLogic::loginCompleted(const QString &result)
 
 void AppLogic::accessTokenReady(const QString &accessToken)
 {
-    qDebug() << "accessTokenReady" << accessToken;
-
+//    qDebug() << "accessTokenReady" << accessToken;
     label->setText(QStringLiteral("AccessToken: ") +  accessToken);
     QtPicasaLoader picasaLoader("temptemptemp");
     picasaLoader.setAccessToken(accessToken);
@@ -78,14 +77,15 @@ void AppLogic::accessTokenReady(const QString &accessToken)
 
 void AppLogic::refreshTokenReady(const QString &refreshToken)
 {
-    qDebug() << "refreshTokenReady" << refreshToken;
+//    qDebug() << "refreshTokenReady" << refreshToken;
     QSettings settings;
     settings.setValue("refreshToken", refreshToken);
 }
 
 void AppLogic::error(const QString &error)
 {
-    qDebug() << "Login Error" << error;
+    //qDebug() << "Login Error" << error;
+    label->setText("Error: " + error);
 }
 
 
