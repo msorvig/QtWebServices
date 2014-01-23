@@ -18,10 +18,18 @@ void QtGoogleLoginWidget::displayLoginPage(const QUrl &loginUrl)
 
 void QtGoogleLoginWidget::pageLoadFinished(bool ok)
 {
-    QString webPageTitle = webView->title();
-    if (webPageTitle.startsWith(QStringLiteral("Request for Permission")))
-        return; // Initial login page
+    QString pageTitle = webView->title();
 
-    // Result page
-    emit pageTitleChanged(webPageTitle);
+   // As the user progresses through the login sequence there
+   // will be multiple page load events. The web page title
+   // containes the (possibly internationalized) status.
+   //
+   // The final page title will contain the quthorization code:
+   //   Success state=authenticae&code=*****
+   // Or deny access:
+   //   Denied error=access_denied&state=authenticae"
+   if (!pageTitle.contains("Success") && !pageTitle.contains("Denied"))
+        return; // login still in progress
+
+    emit loginCompleted(pageTitle);
 }

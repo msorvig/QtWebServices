@@ -10,7 +10,7 @@ Q_OBJECT
 public:
     QtGoogleLoginWidget(QWidget *parentWidget = 0);
 Q_SIGNALS:
-    void pageTitleChanged(const QString &pageTitle);
+    void loginCompleted(const QString &result);
 public Q_SLOTS:
     void displayLoginPage(const QUrl &loginUrl);
 private Q_SLOTS:

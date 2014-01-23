@@ -47,13 +47,14 @@ void AppLogic::displayLoginPage(const QUrl &rul)
     loginWidget->displayLoginPage(login->authorizationUrl());
 #else
     loginWindowController = new QtGoogleLoginWindowController(window->windowHandle());
-    connect(loginWindowController, SIGNAL(pageTitleChanged(QString)), SLOT(handleLoginPageLoad(QString)));
+    connect(loginWindowController, SIGNAL(loginCompleted(QString)), SLOT(loginCompleted(QString)));
     loginWindowController->displayLoginPage(login->authorizationUrl());
 #endif
 }
 
-void AppLogic::handleLoginPageLoad(const QString &webPageTitle)
+void AppLogic::loginCompleted(const QString &result)
 {
+//    qDebug() << "loginCompleted" << result;
 #ifdef LOGIN_WIDGET
     loginWidget->hide();
     delete loginWidget;

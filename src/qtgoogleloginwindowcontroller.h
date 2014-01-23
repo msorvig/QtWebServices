@@ -9,7 +9,7 @@ public:
     ~QtGoogleLoginWindowController();
     void hide();
 Q_SIGNALS:
-    void pageTitleChanged(const QString &pageTitle);
+    void loginCompleted(const QString &result);
 public Q_SLOTS:
     void displayLoginPage(const QUrl &loginUrl);
 private Q_SLOTS:
