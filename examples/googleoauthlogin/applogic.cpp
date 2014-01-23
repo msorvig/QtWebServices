@@ -45,19 +45,31 @@ void AppLogic::start()
     login->initiateAccess();
 }
 
+//#define LOGIN_WIDGET
 void AppLogic::displayLoginPage(const QUrl &rul)
 {
+#ifdef LOGIN_WIDGET
     loginWidget = new QtGoogleLoginWidget();
     loginWidget->move(50, 50);
     loginWidget->setWindowTitle("QtGoogleLoginWidget");
     connect(loginWidget, SIGNAL(pageTitleChanged(QString)), SLOT(handleLoginPageLoad(QString)));
     loginWidget->displayLoginPage(login->authorizationUrl());
+#else
+    loginWindowController = new QtGoogleLoginWindowController(window->windowHandle());
+    connect(loginWindowController, SIGNAL(pageTitleChanged(QString)), SLOT(handleLoginPageLoad(QString)));
+    loginWindowController->displayLoginPage(login->authorizationUrl());
+#endif
 }
 
 void AppLogic::handleLoginPageLoad(const QString &webPageTitle)
 {
+#ifdef LOGIN_WIDGET
     loginWidget->hide();
     delete loginWidget;
+#else
+    loginWindowController->hide();
+    delete loginWindowController;
+#endif
     login->initiateAccessFromLoginWebPageTitle(webPageTitle);
 }
 

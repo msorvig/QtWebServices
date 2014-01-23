@@ -1,5 +1,7 @@
 include (../../src/src.pri)
 include (../../src/qtgoogleloginwidget.pri)
+include (../../src/qtgoogleloginwindow.pri)
+
 
 OBJECTS_DIR=.obj
 MOC_DIR=.moc
