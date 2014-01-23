@@ -64,8 +64,8 @@ void QtWebView::load(const QUrl &url)
 
 QString QtWebView::title() const
 {
-    return QString("dontknow");
-    //return QString::fromNSString([webView mainFrameTitle]);
+    NSString *title = [webView stringByEvaluatingJavaScriptFromString:@"document.title"];
+    return QString::fromNSString(title);
 }
 
 void *QtWebView::nativeView()
