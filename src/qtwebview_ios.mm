@@ -48,6 +48,7 @@ QtWebView::QtWebView(QObject *parent)
 {
     CGRect frame = CGRectMake(0.0, 0.0, 400, 400);
     UIWebView *w = [[UIWebView alloc] initWithFrame:frame];
+    w.delegate = [[QtWebViewDelegate alloc] initWithQtWebView:this];
     webView = w;
 }
 

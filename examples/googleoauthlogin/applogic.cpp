@@ -26,18 +26,10 @@ void AppLogic::start()
 {
     window->resize(600, 600);
 
-    //QSplitter *splitter = new QSplitter;
-    //QListWidget *listView = new QListWidget;
-    //listView->addItems(QStringList() << "en" << "to" << "tre");
-
     label = new QLabel;
-    label->setText("");
+    label->setText("Hello World");
 
-    //splitter->addWidget(listView);
-    //splitter->addWidget(label);
-    //splitter->setSizes(QList<int>() << 20 << 50);
     QHBoxLayout *layout = new QHBoxLayout;
-
     layout->addWidget(label);
     window->setLayout(layout);
     window->show();
@@ -45,7 +37,6 @@ void AppLogic::start()
     login->initiateAccess();
 }
 
-//#define LOGIN_WIDGET
 void AppLogic::displayLoginPage(const QUrl &rul)
 {
 #ifdef LOGIN_WIDGET
@@ -78,18 +69,10 @@ void AppLogic::accessTokenReady(const QString &accessToken)
     qDebug() << "accessTokenReady" << accessToken;
 
     label->setText(QStringLiteral("AccessToken: ") +  accessToken);
-/*
-    QtPicasaWeb picasaweb;
-    picasaweb.setAuthenticationToken(accessToken);
-    QByteArray feed = picasaweb.requestFeed();
-//    qDebug() << "feed" << feed.count();
-    picasaweb.parseFeedXml(feed);
-*/
     QtPicasaLoader picasaLoader("temptemptemp");
     picasaLoader.setAccessToken(accessToken);
     picasaLoader.downloadFeedXml();
     picasaLoader.parseFeed();
-
 }
 
 void AppLogic::refreshTokenReady(const QString &refreshToken)
@@ -101,7 +84,7 @@ void AppLogic::refreshTokenReady(const QString &refreshToken)
 
 void AppLogic::error(const QString &error)
 {
-    qDebug() << "error error error" << error;
+    qDebug() << "Login Error" << error;
 }
 
 

@@ -20,6 +20,10 @@ private:
     QtGoogleOAuthLogin *login;
     QWidget *window;
     QLabel *label;
+
+//#define LOGIN_WIDGET
+#ifdef LOGIN_WIDGET
     QtGoogleLoginWidget *loginWidget;
+#endif
     QtGoogleLoginWindowController *loginWindowController;
 };
