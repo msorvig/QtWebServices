@@ -24,7 +24,7 @@ public:
     void setRefreshToken(const QString &refreshToken);
     QString refreshToken() const;
 
-    // The access token is acuired at quthorization and is
+    // The access token is acquired at quthorization and is
     // use with other APIs. It will expire, in which case
     // the refresh token can be used to gain a new access
     // token.
@@ -60,8 +60,10 @@ private:
 private Q_SLOTS:
     void replyFinished(QNetworkReply *reply);
     void slotError(QNetworkReply::NetworkError error);
-    void slotSslErrors(QList<QSslError> sslErrors);
-
+#ifndef Q_OS_IOS
+//    ### moc
+//    void slotSslErrors(QList<QSslError> sslErrors);
+#endif
 private:
     // protocol constants
     QString m_oauthUrl;

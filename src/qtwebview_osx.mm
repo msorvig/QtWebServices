@@ -46,6 +46,11 @@ QtWebView::QtWebView(QObject *parent)
     webView = myWebView;
 }
 
+QtWebView::~QtWebView()
+{
+    [webView release];
+}
+
 void QtWebView::load(const QUrl &url)
 {
     [[webView mainFrame] loadRequest:[NSURLRequest requestWithURL:url.toNSURL()]];

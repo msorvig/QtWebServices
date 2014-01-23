@@ -169,8 +169,11 @@ void QtGoogleOAuthLogin::postNetworkRequest(const QNetworkRequest &request, cons
     m_reply = m_networkAccessManager->post(request, data);
     connect(m_reply, SIGNAL(error(QNetworkReply::NetworkError)),
             this, SLOT(slotError(QNetworkReply::NetworkError)));
-    connect(m_reply, SIGNAL(sslErrors(QList<QSslError>)),
-            this, SLOT(slotSslErrors(QList<QSslError>)));
+
+#ifndef Q_OS_IOS
+//    connect(m_reply, SIGNAL(sslErrors(QList<QSslError>)),
+//            this, SLOT(slotSslErrors(QList<QSslError>)));
+#endif
 }
 
 void QtGoogleOAuthLogin::replyFinished(QNetworkReply *reply)
@@ -207,11 +210,12 @@ void QtGoogleOAuthLogin::slotError(QNetworkReply::NetworkError error)
     //emit error(replyContents);
 }
 
-void QtGoogleOAuthLogin::slotSslErrors(QList<QSslError> sslErrors)
-{
-    m_reply->ignoreSslErrors();
-}
-
+#ifndef Q_OS_IOS
+//void QtGoogleOAuthLogin::slotSslErrors(QList<QSslError> sslErrors)
+//{
+//    m_reply->ignoreSslErrors();
+//}
+#endif
 
 
 

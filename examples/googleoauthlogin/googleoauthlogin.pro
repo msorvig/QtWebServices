@@ -14,4 +14,3 @@ TEMPLATE = app
 HEADERS +=  applogic.h
 SOURCES += main.cpp  applogic.cpp
 
-LIBS += -framework AppKit -framework WebKit

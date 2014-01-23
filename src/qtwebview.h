@@ -8,6 +8,7 @@ class QtWebView : public QObject
 Q_OBJECT
 public:
     QtWebView(QObject *parent = 0);
+    ~QtWebView();
     void load(const QUrl &url);
     QString title() const;
 

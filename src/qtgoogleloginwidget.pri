@@ -1,9 +1,13 @@
 INCLUDEPATH += $$PWD
 
-OBJECTIVE_SOURCES += $$PWD/qtwebview.mm \
-                     $$PWD/qtgoogleloginwidget.mm
+osx {
+    OBJECTIVE_SOURCES += $$PWD/qtwebview_osx.mm
+    HEADERS += $$PWD/qtwebview.h
+    LIBS += -framework WebKit -framework AppKit
+}
 
-HEADERS += $$PWD/qtwebview.h \
-           $$PWD/qtgoogleloginwidget.h \
+OBJECTIVE_SOURCES += $$PWD/qtgoogleloginwidget.mm
+HEADERS += $$PWD/qtgoogleloginwidget.h
 
 QT += widgets
+
