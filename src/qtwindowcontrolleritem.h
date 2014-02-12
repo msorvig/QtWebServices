@@ -8,7 +8,7 @@ class QtWindowControllerItem : public QQuickItem
     Q_OBJECT
 public:
     explicit QtWindowControllerItem(QQuickItem *parent = 0);
-    void setNativeWindow(WId windowId);
+    void setWindow(QWindow *window);
     void componentComplete();
     void geometryChanged(const QRectF &newGeometry, const QRectF &oldGeometry);
 

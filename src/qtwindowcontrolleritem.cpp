@@ -11,9 +11,9 @@ QtWindowControllerItem::QtWindowControllerItem(QQuickItem *parent)
     connect(this, SIGNAL(visibleChanged()), this, SLOT(onVisibleChanged()));
 }
 
-void QtWindowControllerItem::setNativeWindow(WId windowId)
+void QtWindowControllerItem::setWindow(QWindow *window)
 {
-    m_controlledWindow = QWindow::fromWinId(windowId);
+    m_controlledWindow = window;
     m_controlledWindow->setVisibility(QWindow::Windowed);
 }
 
