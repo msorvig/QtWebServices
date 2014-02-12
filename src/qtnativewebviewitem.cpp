@@ -4,8 +4,7 @@ QtNativeWebViewItem::QtNativeWebViewItem(QQuickItem *parent)
     :QtWindowControllerItem(parent)
 {
     webView = new QtWebView(this);
-    webView->load(QUrl("http://news.ycombinator.com"));
-    setNativeWindow(WId(webView->nativeView()));
+    QtWindowControllerItem::setWindow(QWindow::fromWinId(WId(webView->nativeView())));
 }
 
 QtNativeWebViewItem::~QtNativeWebViewItem()

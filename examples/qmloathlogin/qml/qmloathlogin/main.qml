@@ -21,6 +21,7 @@ Rectangle {
 
     NativeWebView {
         id: webView
+        url : "http://news.ycombinator.com"
         anchors.left: buttons.right
         height: parent.height - 200
         width: parent.width - 100
