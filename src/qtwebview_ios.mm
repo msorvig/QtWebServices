@@ -24,21 +24,18 @@
 - (void)webViewDidStartLoad:(UIWebView *)webView
 {
     Q_UNUSED(webView);
-//    qDebug() << "webViewDidStartLoad";
     emit QtWebView->loadStarted();
 }
 
 - (void)webViewDidFinishLoad:(UIWebView *)webView
 {
     Q_UNUSED(webView);
-//    qDebug() << "webViewDidStartLoad";
     emit QtWebView->loadFinished(true);
 }
 
 - (void)webView:(UIWebView *)webView didFailLoadWithError:(NSError *)error
 {
     Q_UNUSED(webView);
-//    qDebug() << "didFailLoadWithError";
 }
 
 @end
@@ -57,15 +54,70 @@ QtWebView::~QtWebView()
     [webView release];
 }
 
-void QtWebView::load(const QUrl &url)
+QUrl QtWebView::url() const
+{
+    qWarning() << "Not implemented" << __FUNCTION__;
+    return QUrl();
+}
+
+void QtWebView::setUrl(const QUrl&url)
 {
     [(UIWebView*)webView loadRequest:[NSURLRequest requestWithURL:url.toNSURL()]];
+}
+
+QImage QtWebView::icon() const
+{
+    qWarning() << "Not implemented" << __FUNCTION__;
+    return QImage();
+}
+
+bool QtWebView::isLoading() const
+{
+    qWarning() << "Not implemented" << __FUNCTION__;
+    return false;
 }
 
 QString QtWebView::title() const
 {
     NSString *title = [webView stringByEvaluatingJavaScriptFromString:@"document.title"];
     return QString::fromNSString(title);
+}
+
+bool QtWebView::canGoBack() const
+{
+    qWarning() << "Not implemented" << __FUNCTION__;
+    return false;
+}
+
+bool QtWebView::canGoForward() const
+{
+    qWarning() << "Not implemented" << __FUNCTION__;
+    return false;
+}
+
+void QtWebView::goBack()
+{
+    qWarning() << "Not implemented" << __FUNCTION__;
+}
+
+void QtWebView::goForward()
+{
+    qWarning() << "Not implemented" << __FUNCTION__;
+}
+
+void QtWebView::reload()
+{
+    qWarning() << "Not implemented" << __FUNCTION__;
+}
+
+void QtWebView::stop()
+{
+    qWarning() << "Not implemented" << __FUNCTION__;
+}
+
+void QtWebView::load(const QUrl &url)
+{
+    setUrl(url);
 }
 
 void *QtWebView::nativeView()

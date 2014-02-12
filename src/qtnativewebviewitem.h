@@ -1,34 +1,36 @@
-#ifndef QTWEBVIEW_H
-#define QTWEBVIEW_H
+#ifndef QTNATIVEWEBVIEWITEM_H
+#define QTNATIVEWEBVIEWITEM_H
 
-#include <QtCore/QtCore>
-#include <QtGui/QtGui>
+#include "qtwindowcontrolleritem.h"
+#include "qtwebview.h"
 
-class QtWebView : public QObject
+#include <QtGui/QIcon>
+
+class QtNativeWebViewItem : public QtWindowControllerItem
 {
-Q_OBJECT
-public:
-    QtWebView(QObject *parent = 0);
-    ~QtWebView();
+    Q_OBJECT
 public:
     // QQuickWebEngineView API:
     Q_PROPERTY(QUrl url READ url WRITE setUrl NOTIFY urlChanged)
-    Q_PROPERTY(QImage icon READ icon NOTIFY iconChanged)
+    Q_PROPERTY(QUrl icon READ icon NOTIFY iconChanged)
     Q_PROPERTY(bool loading READ isLoading NOTIFY loadingStateChanged)
 //    Q_PROPERTY(int loadProgress READ loadProgress NOTIFY loadProgressChanged)
     Q_PROPERTY(QString title READ title NOTIFY titleChanged)
     Q_PROPERTY(bool canGoBack READ canGoBack NOTIFY loadingStateChanged)
     Q_PROPERTY(bool canGoForward READ canGoForward NOTIFY loadingStateChanged)
 //    Q_PROPERTY(bool inspectable READ inspectable WRITE setInspectable)
-    Q_ENUMS(LoadStatus);
+//    Q_ENUMS(LoadStatus);
 //    Q_ENUMS(ErrorDomain);
 
 public:
+    explicit QtNativeWebViewItem(QQuickItem *parent = 0);
+    ~QtNativeWebViewItem();
+
     QUrl url() const;
     void setUrl(const QUrl&url);
-    QImage icon() const;
+    QUrl icon() const;
     bool isLoading() const;
-//    int loadProgress() const;
+    int loadProgress() const;
     QString title() const;
     bool canGoBack() const;
     bool canGoForward() const;
@@ -65,14 +67,8 @@ Q_SIGNALS:
     void loadingStateChanged(LoadStatus loadStatus);
     void loadProgressChanged();
 
-public: // ye olde API:
-    void load(const QUrl &url);
-    void *nativeView();
-Q_SIGNALS:
-    void loadStarted();
-    void loadFinished(bool ok);
 private:
-    void *webView;
+    QtWebView *webView;
 };
 
 #endif
