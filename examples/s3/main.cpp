@@ -47,12 +47,18 @@ void transferDirectory(const QString sourcePath, const QString &targetBucket, co
         QFile file(filePath);
         file.open(QIODevice::ReadOnly);
         QByteArray compressedContent = deflate(file.readAll());
+        QByteArray etag = QByteArray::number(qHash(compressedContent), 16);
 
         // targetFilePath is the "local" path left after removing the source path
         QString targetFilePath = targetPathPrefix + filePath.right(filePath.count() - sourcePath.count() - 1);
         
         // upload to s3
-        int fail = s3.put(targetBucket, targetFilePath, compressedContent, QStringList() << guessContentType(filePath) << "Content-Encoding:deflate");
+        QStringList headers = QStringList() << guessContentType(filePath)
+                                           << "Content-Encoding:deflate"
+                                           << "Etag:\"" + etag + "\""
+                                           << "Cache-Control:max-age=2"; // make cloudfront verify it has the most recent
+                                                                         // version of the file.
+        int fail = s3.put(targetBucket, targetFilePath, compressedContent, headers);
         if (fail) {
             qDebug() << "S3 upload failed:" << s3.errorString();
             s3.clearErrorState();
