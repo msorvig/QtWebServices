@@ -15,7 +15,6 @@ public:
 
     QString m_accessKeyId;
     QString m_secretAccessKey;
-    aws::S3ConnectionPtr lS3Rest;
 };
 
 
@@ -68,18 +67,18 @@ int QtS3::put(const QString &bucketName, const QString &path, const QByteArray &
         d->errorString = QStringLiteral("Bucket name is empty");
     }
 
+    aws::S3ConnectionPtr lS3Rest;
+
     try {
         AWSConnectionFactory* lFactory = AWSConnectionFactory::getInstance();
-        if (d->lS3Rest.isNull()) {
-            d->lS3Rest = lFactory->createS3Connection(d->m_accessKeyId.toStdString(), d->m_secretAccessKey.toStdString());
-        }
+        lS3Rest = lFactory->createS3Connection(d->m_accessKeyId.toStdString(), d->m_secretAccessKey.toStdString());
 
         // Check for existing bucket?
-        //ListAllBucketsResponsePtr lListBucket = d->lS3Rest->listBucket(bucketName.toStdString());
+        //ListAllBucketsResponsePtr lListBucket = lS3Rest->listBucket(bucketName.toStdString());
 
         // Create bucket. Will succeed if the bucket name is available or we already own the bucket
         // Will fail if the bucket name is taken (the bucket namespace is shared among all users)
-        CreateBucketResponsePtr lCreateBucket = d->lS3Rest->createBucket(bucketName.toStdString());
+//        CreateBucketResponsePtr lCreateBucket = lS3Rest->createBucket(bucketName.toStdString());
         //std::cout << "Bucket created successfully" << std::endl;
         //std::cout << "  Location: " << lCreateBucket->getLocation() << std::endl;
         //std::cout << "  Date: " << lCreateBucket->getDate() << std::endl;
@@ -108,7 +107,7 @@ int QtS3::put(const QString &bucketName, const QString &path, const QByteArray &
 
         std::stringstream stream;
         stream.rdbuf()->pubsetbuf(const_cast<char *>(content.data()), content.length());
-        PutResponsePtr lPut = d->lS3Rest->put(bucketName.toStdString(), path.toStdString(), stream, contentType, &headerMap);
+        PutResponsePtr lPut = lS3Rest->put(bucketName.toStdString(), path.toStdString(), stream, contentType, &headerMap);
     } catch (aws::AWSConnectionException& e) {
         d->errorString = QString::fromStdString(e.what());
         d->errorState = 1;
