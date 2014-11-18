@@ -1,6 +1,36 @@
 #include <QtCore>
 #include <qts3.h>
 
+#ifdef HAVE_QTCONCURRENT
+#include <qthreadfunctions.h>
+#endif
+
+// QDirIterator STL wrapper
+class QDirIteratorIterator
+{
+public:
+    typedef QString value_type;
+    typedef QString &reference;
+    typedef QString *pointer;
+
+    QDirIteratorIterator(QDirIterator *it = 0)
+        :_it(it) { if (it) ++(*this); }
+
+    QString operator*() const {
+        return _current;
+    }
+    QDirIteratorIterator& operator++() {
+        _current = _it->next();
+        return *this;
+    }
+    bool operator!=(const QDirIteratorIterator &other) {
+        return !(_it == other._it || _current == other._current);
+    }
+
+    QDirIterator *_it;
+    QString _current;
+};
+
 QByteArray deflate(const QByteArray &source)
 {
     QByteArray compressed = qCompress(source);
@@ -19,29 +49,29 @@ QString guessContentType(const QString &fileName)
     return QStringLiteral("Content-Type:application/octet-stream"); // binary
 }
 
+QHash<QThread *, int> seenThreads;
+
 void transferDirectory(const QString sourcePath, const QString &targetBucket, const QString &targetPathPrefix = QString())
 {
+    int fileCount = 0;
+
     // Connect to S3 using a accessKeyId/secretAccessKey pair.
     QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
     QtS3 s3(environment.value("AWS_ACCESS_KEY_ID"), environment.value("AWS_SECRET_ACCESS_KEY"));
     if (s3.errorCode()) {
         qDebug() << "QtS3 fail:" << s3.errorString();
     }
-
-    int fileCount = 0;
     
-    // iterate over all files and subdirs
-    QDirIterator it(sourcePath, QDirIterator::Subdirectories);
-    while (it.hasNext()) {
-        QString filePath = it.next();
+    auto transferFile = [&](const QString &filePath){
         if (!QFileInfo(filePath).isFile())
-            continue;
+            return;
 
         QString targetFileName = QFileInfo(filePath).fileName();
         if (targetFileName == QStringLiteral(".") || targetFileName == QStringLiteral(".."))
-            continue;
+            return;
 
-        qDebug() << "Start transfer of file" << filePath;
+        qDebug() << "Start compressing file" << filePath << QThread::currentThread();
+        ++seenThreads[QThread::currentThread()];
 
         // read and compress file.
         QFile file(filePath);
@@ -58,15 +88,28 @@ void transferDirectory(const QString sourcePath, const QString &targetBucket, co
                                            << "Etag:\"" + etag + "\""
                                            << "Cache-Control:max-age=2"; // make cloudfront verify it has the most recent
                                                                          // version of the file.
+
+        qDebug() << "Start transferring file" << filePath;
+
         int fail = s3.put(targetBucket, targetFilePath, compressedContent, headers);
         if (fail) {
             qDebug() << "S3 upload failed:" << s3.errorString();
             s3.clearErrorState();
         } else {
             ++fileCount;
-            qDebug() << "Transferred" << fileCount << "files";
+            qDebug() << "Done transferring file" << filePath << "Total" << fileCount;
         }
-    }
+    };
+
+    QDirIterator dirIt(sourcePath, QDirIterator::Subdirectories);
+    QDirIteratorIterator it(&dirIt);
+    QDirIteratorIterator end;
+
+#ifdef HAVE_QTCONCURRENT
+    parallelForeach(it, end, transferFile);
+#else
+    std::for_each(it, end, transferFile);
+#endif
 }
 
 void simpletest()
@@ -112,4 +155,7 @@ int main(int argc, char *argv[])
         targetPath = args.at(3);
 
     transferDirectory(sourcePath, bucket, targetPath);
+
+    qDebug() << "Total number of unique threads used:" << seenThreads.count();
+    qDebug() << seenThreads;
 }
