@@ -432,7 +432,7 @@ ListBucketHandler::charactersSAXFunc(void * ctx,
 
 #endif
 #ifndef NDEBUG
-    assert(lEndValue=='\0');
+//    assert(lEndValue=='\0');
 #endif
   } else if (lHandler->isSet(CommonPrefixes) && lHandler->isSet(Prefix)) {
     lRes->theCommonPrefixes.push_back(std::string((const char*)value, len));
