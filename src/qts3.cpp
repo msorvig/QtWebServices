@@ -111,9 +111,9 @@ int QtS3::put(const QString &bucketName, const QString &path, const QByteArray &
     } catch (aws::AWSConnectionException& e) {
         d->errorString = QString::fromStdString(e.what());
         d->errorState = 1;
-    } catch (aws::AWSException& awse) {
+    } catch (aws::S3Exception& awse) {
         d->errorString = QString::fromStdString(awse.what());
-        d->errorState = 1;
+        d->errorState = awse.getErrorCode();
     } catch (...) {
         d->errorString = "Some error";
         d->errorState = 1;
@@ -121,3 +121,26 @@ int QtS3::put(const QString &bucketName, const QString &path, const QByteArray &
 
     return d->errorState;
 }
+
+int QtS3::exists(const QString &bucketName, const QString &path)
+{
+    aws::S3ConnectionPtr lS3Rest;
+    int code = 0;
+    try {
+        AWSConnectionFactory* lFactory = AWSConnectionFactory::getInstance();
+        lS3Rest = lFactory->createS3Connection(d->m_accessKeyId.toStdString(), d->m_secretAccessKey.toStdString());
+        lS3Rest->head(bucketName.toStdString(), path.toStdString());
+        return code;
+    } catch (aws::AWSConnectionException& e) {
+        d->errorString = QString::fromStdString(e.what());
+        d->errorState = 1;
+    } catch (aws::S3Exception& awse) {
+        d->errorString = QString::fromStdString(awse.what());
+        code = awse.getErrorCode();
+    } catch (...) {
+        d->errorString = "Some error";
+        d->errorState = 1;
+    }
+    return code;
+}
+

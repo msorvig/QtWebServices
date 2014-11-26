@@ -8,6 +8,7 @@ public:
     ~QtS3();
     
     int put(const QString &bucketName, const QString &path, const QByteArray &content, const QStringList &headers);
+    int exists(const QString &bucketName, const QString &path);
 
     int errorCode();
     QString errorString();
