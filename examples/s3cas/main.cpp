@@ -1,6 +1,11 @@
 #include <QtCore>
 #include <qts3.h>
 
+bool g_knownFilesOnly = false;
+bool g_enableCompression = false;
+QByteArray g_bucket;
+QByteArray g_salt = "";
+
 #ifdef HAVE_QTCONCURRENT
 #include <qthreadfunctions.h>
 #endif
@@ -60,20 +65,72 @@ QString guessContentType(const QString &fileName)
 
 QHash<QThread *, int> seenThreads;
 
-void transferDirectory(const QString sourcePath, const QString &bucket, const QString &targetPathPrefix = QString(), bool knownFilesOnly = false)
+void transferDirectory(const QString sourcePath, const QString &targetPathPrefix = QString())
 {
     // Connect to S3 using a accessKeyId/secretAccessKey pair.
     QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
-    QtS3 s3(environment.value("AWS_ACCESS_KEY_ID"), environment.value("AWS_SECRET_ACCESS_KEY"));
+    QtS3 s3(environment.value("S3CAS_AWS_ACCESS_KEY_ID"), environment.value("S3CAS_AWS_SECRET_ACCESS_KEY"));
     if (s3.errorCode()) {
         qDebug() << "QtS3 fail:" << s3.errorString();
     }
 
+    // Keep a record of all uploaded files in a json
+    // array of objects.
+    //  
+    // [ { "path/top/file" : "sha1hash" },
+    //   ...
+    // ]
+    //
+    QJsonArray tree;
     int fileCount = 0;
-    auto transferFile = [&](const QString &filePath){
+
+    // transfers file contents to a given path
+    auto transferFileContents = [&](const QString &targetFilePath, const QByteArray &fileContent, QStringList headers) {
+        s3.clearErrorState();
+        s3.put(g_bucket, targetFilePath, fileContent, headers);
+        if (s3.errorCode()) {
+            qDebug() << "S3 upload failed:" << s3.errorString();
+            s3.clearErrorState();
+            return false;
+        } 
+        return true;
+    };
+
+    // stores the given file contents with a content-derived adresss
+    auto storeFileContents = [&](const QByteArray &fileContent_, QString contentTypeHeader) {
+        
+        QByteArray fileContent = fileContent_;
+
+        // compute hash, which becomes the file adress.
+        QByteArray hash = QCryptographicHash::hash(fileContent, QCryptographicHash::Sha1).toHex();
+        QString targetFilePath = targetPathPrefix + hash;
+        
+        // check for existence
+        int code = s3.exists(g_bucket, hash);
+        if (code == 0) {
+            return hash; // it exists; done
+        }
+
+        // compress
+        if (g_enableCompression) {
+            // FIXME: store in deflate format (not qComprees)
+            fileContent = qCompress(fileContent);
+        }
+
+        // upload
+        QStringList headers = QStringList() << contentTypeHeader
+                                            << "Etag:\"" + hash + "\"";
+        transferFileContents(targetFilePath, fileContent, headers);
+        ++fileCount;
+        return hash;
+    };
+
+    // stores the given file with a content-derived adresss
+    auto storeFile = [&](const QString &filePath){
+
+        // sanity check the file path
         if (!QFileInfo(filePath).isFile())
             return;
-
         QString targetFileName = QFileInfo(filePath).fileName();
         if (targetFileName == QStringLiteral(".") || targetFileName == QStringLiteral(".."))
             return;
@@ -84,74 +141,58 @@ void transferDirectory(const QString sourcePath, const QString &bucket, const QS
         // Get/guess the content-type header
         QString contentTypeHeader = getKnownContentType(filePath);
         if (contentTypeHeader.isEmpty()) {
-            if (knownFilesOnly)
+            if (g_knownFilesOnly)
                 return;
             else
                 contentTypeHeader = guessContentType(filePath);
         }
 
-        // read file and compute the sha1 hash.
+        // read and store file
         QFile file(filePath);
+        QFileInfo fileInfo(filePath);
         file.open(QIODevice::ReadOnly);
         QByteArray fileContent = file.readAll();
-        QByteArray hash = QCryptographicHash::hash(fileContent, QCryptographicHash::Sha1).toHex();
+        QByteArray hash = storeFileContents(fileContent, contentTypeHeader);
         QString targetFilePath = targetPathPrefix + hash;
 
-        qDebug() << "target filePath" << targetFilePath << contentTypeHeader;
-
-        QStringList headers = QStringList() << contentTypeHeader
-                                            << "Etag:\"" + hash + "\"";
-
-        int code = s3.exists(bucket, hash);
-        if (code == 0) {
-            qDebug() << bucket << "has file" << filePath << hash;
-            return; // it exists; done
-        }
+        // recoord file entry in file tree
+        QJsonObject fileEntry;
+        fileEntry[filePath] = targetFilePath;
+        fileEntry["type"] = "blob";
+        fileEntry["datetime"] = QString::number(fileInfo.created().toMSecsSinceEpoch());
         
-        qDebug() << "S3 error code" << filePath <<  code << s3.errorString();
-            
-        s3.clearErrorState();
-        s3.put(bucket, targetFilePath, fileContent, headers);
-        if (s3.errorCode()) {
-            qDebug() << "S3 upload failed:" << s3.errorString();
-            s3.clearErrorState();
-        } else {
-            ++fileCount;
-            qDebug() << "Done transferring file" << filePath << "Total" << fileCount;
-        }
-
+        tree.append(fileEntry);
     };
 
+    // Iterate over the soruce path, recurse into subdirectories
     QDirIterator dirIt(sourcePath, QDirIterator::Subdirectories);
     QDirIteratorIterator it(&dirIt);
     QDirIteratorIterator end;
-
 #ifdef HAVE_QTCONCURRENT
-    parallelForeach(it, end, transferFile);
+    parallelForeach(it, end, storeFile);
 #else
-    std::for_each(it, end, transferFile);
+    std::for_each(it, end, storeFile);
 #endif
+
+    // uppload tree structure
+    QByteArray jsonFileTree = QJsonDocument(tree).toJson();
+    QByteArray treeHash = storeFileContents(jsonFileTree, "Content-Type:text/json");
+    qDebug() << treeHash;
+
+    // update the tag
+    QStringList headers = QStringList() << "Content-Type:text/plain";
+    QString tagName = "tag-fooo";
+    transferFileContents(targetPathPrefix + tagName, treeHash, headers);
 }
 
-void simpletest()
+void downloadDirectory(const QString &tagName, const QString &targetDirectory)
 {
-    // Connect to S3 using a accessKeyId/secretAccessKey pair.
-    QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
-    QtS3 s3(environment.value("AWS_ACCESS_KEY_ID"), environment.value("AWS_SECRET_ACCESS_KEY"));
+    // Set up AWS S3 bucket url
+    QString awss3Url = "https://s3.amazonaws.com/";
+    QString bucketUrl = awss3Url + g_bucket + "/";
+    QString tagUrl  = bucketUrl + tagName;
 
-    // Transfer files:
-    s3.put("qt-test-bucket", "test1", "TEST1", QStringList() << "Content-Type: text/plain" << "Content-Encoding:deflate");
-    s3.put("qt-test-bucket", "test2", "TEST2", QStringList() << "Content-Type: text/plain" << "Content-Encoding:deflate");
-    s3.put("qt-test-bucket", "test3", "TEST3", QStringList() << "Content-Type: text/plain" << "Content-Encoding:deflate");
-
-    // Check for errors. QtS3 supports making multiple API calls without checking the
-    // error state for each call. A failure sets an error flag on the QtS3 object,
-    // subsequent API calls are fast no-ops. Calling takeErrorState clears the flag.
-    QString errorString;
-    int fail = s3.errorCode();
-    if (fail) {
-        qDebug() << "S3 upload failed:" << s3.errorString();
-    }
+    // fetch tag
 }
 
 int main(int argc, char *argv[])
@@ -159,17 +200,26 @@ int main(int argc, char *argv[])
     QCoreApplication app(argc, argv);
     QCoreApplication::setApplicationName("S3CAS");
     QCoreApplication::setApplicationVersion("0.1");
-    
+
     QCommandLineParser parser;
-    parser.setApplicationDescription("The Stupid S3 Content Addressable Storage Uploader");
+    parser.setApplicationDescription("\n The Stupid S3 Content Addressable Storage Uploader\n"
+                                     "\n"
+                                     "S3CAS is configured using the following environment variables: \n"
+                                     "\n"
+                                     "    S3CAS_AWS_ACCESS_KEY_ID\n"
+                                     "    S3CAS_AWS_SECRET_ACCESS_KEY\n"
+                                     "    S3CAS_AWS_S3_BUCKET\n"
+                                     "    S3CAS_SALT\n"
+                                     "    S3CAS_ENABLE_COMPRESSION");
     parser.addHelpOption();
     parser.addVersionOption();
-    
+
     parser.addPositionalArgument("source", "Source directory to copy files from");
-    parser.addPositionalArgument("bucket", "Destination bucket");
     parser.addPositionalArgument("target", "Target directory in bucket");
-    
+
     QCommandLineOption unlyKnownFilesOption(QStringList() << "k" << "known", "Upload known file types only");
+    parser.addOption(unlyKnownFilesOption);
+    QCommandLineOption bucketOption(QStringList() << "b" << "bucket", "S3 bucket id");
     parser.addOption(unlyKnownFilesOption);
 
 #ifdef HAVE_QTCONCURRENT
@@ -177,30 +227,39 @@ int main(int argc, char *argv[])
                                          "threadCount", QString::number(QThread::idealThreadCount()));
     parser.addOption(threadCountOption);
 #endif    
-    
+
     parser.process(app);
     const QStringList args = parser.positionalArguments();
-    if (args.count() < 2) {
-        qDebug() << "S3CAS requires at least two arguments";
+    if (args.count() < 1) {
+        qDebug() << "S3CAS requires at least one argument";
         return 0;
     }
     QString source = args.at(0);
-    QString bucket = args.at(1);
     QString target = args.count() > 2 ? args.at(3) : QString();
-    bool knownFilesOnly = parser.isSet(unlyKnownFilesOption);
+    g_knownFilesOnly = parser.isSet(unlyKnownFilesOption);
+    QString g_bucket = qgetenv("S3CAS_AWS_S3_BUCKET");
+    if (g_bucket.isEmpty())
+        g_bucket = parser.value(bucketOption);
+
+    g_salt = qgetenv("S3CAS_SALT");
+    g_enableCompression = !qgetenv("S3CAS_ENABLE_COMPRESSION").isEmpty();
+
     qDebug() << "Source" << source;
-    qDebug() << "Bucket " << bucket;
+    qDebug() << "Bucket " << g_bucket;
+    qDebug() << "compression" << g_enableCompression;
+    qDebug() << "salt" << g_salt;
+
     if (!target.isEmpty()) 
         qDebug() << "Target" << target;
-    qDebug() << "Known Files Only" << knownFilesOnly;
-    
+    qDebug() << "Known Files Only" << g_knownFilesOnly;
+
 #ifdef HAVE_QTCONCURRENT
     QString threadCountOptionValue = parser.value(threadCountOption);
     int threadCount = threadCountOptionValue.toInt();
     qDebug() << "Thread Count" << threadCount;
     QThreadContext::current()->setMaxThreadCount(threadCount);
 #endif    
-    transferDirectory(source, bucket, target, knownFilesOnly);
+    transferDirectory(source, target);
 
     qDebug() << "Total number of unique threads used:" << seenThreads.count();
     qDebug() << seenThreads;
