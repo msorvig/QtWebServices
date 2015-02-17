@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
 
             // Print active options
     qDebug() << "Source" << source;
-    qDebug() << "Bucket " << bucket;
+    // qDebug() << "Bucket " << bucket;
     // qDebug() << "compression" << s3cas.compressionEnabled();
     // qDebug() << "salt" << s3cas.salt();
     // qDebug() << "Known Files Only" << s3cas.knownFileTypesOnly;

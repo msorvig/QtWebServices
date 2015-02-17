@@ -1,7 +1,13 @@
 INCLUDEPATH += $$PWD
 
-SOURCES += $$PWD/qts3.cpp
-HEADERS += $$PWD/qts3.h
+HEADERS +=  \
+    $$PWD/qts3.h \
+    $$PWD/qts3_p.h \
+    $$PWD/qts3cas.h \
+
+SOURCES += \
+    $$PWD/qts3.cpp \
+    $$PWD/qts3cas.cpp \
 
 # libaws
 include ($$PWD/../3rdparty/libaws/libaws.pri)
