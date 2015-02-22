@@ -42,29 +42,42 @@ public:
     static QByteArray awsStringToSign(const QDateTime &timeStamp, const QByteArray &region,
                                       const QByteArray &service,
                                       const QByteArray &canonicalReqeustHash);
+    static QByteArray awsAuthorizationHeader(const QByteArray &awsAccessKeyId, const QDateTime &timeStamp, const QByteArray &region,
+                                                   const QByteArray &service, const QByteArray &signedHeaders,
+                                                   const QByteArray &signature);
 
     // AWS request canoicalization and signing
-    static QMap<QByteArray, QByteArray>
-    canonicalHeaders(const QHash<QByteArray, QByteArray> &headers);
+    static QMap<QByteArray, QByteArray> canonicalHeaders(const QHash<QByteArray, QByteArray> &headers);
     static QByteArray canonicalRequest(const QByteArray &method, const QByteArray &uri,
                                        const QByteArray &queryString,
                                        const QHash<QByteArray, QByteArray> &headers,
                                        const QByteArray &payloadHash);
+    static QByteArray awsRequestSignature(const QHash<QByteArray, QByteArray> headers, const QByteArray &verb,  const QByteArray &url,
+                                          const QByteArray &payload, const QByteArray &signingKey,
+                                          const QDateTime &dateTime, const QByteArray &region,
+                                          const QByteArray &service);
+    static QByteArray authorizationHeaderValue(const QHash<QByteArray, QByteArray> headers, const QByteArray &verb, const QByteArray &url,
+                                                               const QByteArray &payload, const QByteArray accessKeyId, const QByteArray &signingKey,
+                                                               const QDateTime &dateTime, const QByteArray &region,
+                                                               const QByteArray &service);
+
+
     // static QByteArray stringToSign(const QByteArray &dateTimeString, const QByteArray &region,
     // const QByteArray &service, const QByteArray &requestHash);
     // static QByteArray signedRequest(const QByteArray &canonicalRequest, const QByteArray
     // &requestSignature);
 
-    // Top-level request creation and signing;
+    // QNetworkRequest creation and signing;
     static QNetworkRequest *createS3Request(const QUrl &uri,
                                             const QHash<QByteArray, QByteArray> &headers,
                                             const QDateTime &timeStamp, const QByteArray &host);
+    static QHash<QByteArray, QByteArray> requestHeaders(const QNetworkRequest *request);
     static void signAwsRequest(QNetworkRequest *request, const QByteArray &verb,
-                               const QByteArray &payload, const QByteArray &signingKey,
+                               const QByteArray &payload, const QByteArray accessKeyId, const QByteArray &signingKey,
                                const QDateTime &dateTime, const QByteArray &region,
                                const QByteArray &service);
 
-    // Top-level stateful functions. These may/will modify the object state in a thread-safe way.
+    // Top-level stateful functions. These read object state and may/will modify it in a thread-safe way.
     void checkGenerateS3SigningKey();
     QNetworkRequest *createS3Request(const QByteArray &verb, const QUrl &uri,
                                      const QHash<QByteArray, QByteArray> &headers,

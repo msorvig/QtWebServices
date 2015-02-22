@@ -177,46 +177,41 @@ QtS3Optional<QByteArray> QtS3::get(const QString &bucketName, const QString &pat
 
 #include "qts3_p.h"
 
-/*
-    The life and times of an AWS request. Data flow.
 
-                        AWS Secret key ->
-                                Date   -> Signing
-                               Region  ->   Key    ---------------|
-                               Service ->                         |
-                                                                  |
-        Headers: Host, X-Amz-Date                                 |  DateTime
-  APP                 |                                           |  Date/region/service
-   |                  |                                           S    |
-    Request  -> Canonical Request -> CanonicalRequest Hash -> String to Sign -> Request Signature
-        |                                                             |             |
-    Request                                                           |             |
-   with Auth  <---------------Athentication Header-----------------------------------
-     header                             |
-        |                          AWS Key Id
-    THE INTERNET
-*/
+//    The life and times of an AWS request. Data flow.
+//
+//                        AWS Secret key ->
+//                                Date   -> Signing
+//                               Region  ->   Key    ---------------|
+//                               Service ->                         |
+//                                                                  |
+//        Headers: Host, X-Amz-Date                                 |  DateTime
+//  APP                 |                                           |  Date/region/service
+//   |                  |                                           S    |
+//    Request  -> Canonical Request -> CanonicalRequest Hash -> String to Sign -> Request Signature
+//        |                                                             |             |
+//    Request                                                           |             |
+//   with Auth  <---------------Athentication Header-----------------------------------
+//     header                             ^
+//        |                          AWS Key Id
+//    THE INTERNET
 
-/*
-    Implementation notes.
+//
+//
+//    Implementation notes.
+//
+//    We implement general utility functions for signing QNetworkAccessManager AWS requsts,
+//    whith a completing S3 API on top.
+//
+//
 
-    We implement general utility functions for signing QNetworkAccessManager AWS requsts,
-    whith a completing S3 API on top.
-
-
-*/
-
-/*
-    Returns a date formatted as YYYYMMDD.
-*/
+//  Returns a date formatted as YYYYMMDD.
 QByteArray QtS3Private::awsDate(const QDate &date)
 {
     return date.toString(QStringLiteral("yyyyMMdd")).toLatin1();
 }
 
-/*
-    Returns a date formatted as YYYYMMDDTHHMMSSZ
-*/
+//  Returns a date formatted as YYYYMMDDTHHMMSSZ
 QByteArray QtS3Private::awsDateTime(const QDateTime &dateTime)
 {
     // Both Qt and AWS support ISO 8601 dates. However, Qt produces
@@ -225,28 +220,22 @@ QByteArray QtS3Private::awsDateTime(const QDateTime &dateTime)
     return dateTime.toString(QStringLiteral("yyyyMMddThhmmssZ")).toLatin1();
 }
 
-/*
-    HMAC_SHA256.
-*/
+//  HMAC_SHA256.
 QByteArray QtS3Private::HMAC_SHA256(const QByteArray &key, const QByteArray &data)
 {
     return QMessageAuthenticationCode::hash(data, key, QCryptographicHash::Sha256);
 }
 
-/*
-    SHA256.
-*/
+//  SHA256.
 QByteArray QtS3Private::SHA256(const QByteArray &data)
 {
     return QCryptographicHash::hash(data, QCryptographicHash::Sha256);
 }
 
-/*
-    Derives an AWS version 4 signing key. \a secretAccessKey is the aws secrect key,
-    \a dateString is a YYYYMMDD date. The signing key is valid for a limited numvbr of days
-   (currently 7).
-    \a region is the bucket region, for example "us-east-1". \a service the aws service ("s3", ...)
-*/
+//  Derives an AWS version 4 signing key. \a secretAccessKey is the aws secrect key,
+//  \a dateString is a YYYYMMDD date. The signing key is valid for a limited number of days
+//  (currently 7). \a region is the bucket region, for example "us-east-1". \a service the
+//  aws service ("s3", ...)
 QByteArray QtS3Private::awsSigningKey(const QByteArray &secretAccessKey,
                                       const QByteArray dateString, const QByteArray &region,
                                       const QByteArray &service)
@@ -261,13 +250,11 @@ QByteArray QtS3Private::awsSignature(const QByteArray &awsSignatureKey,
     return HMAC_SHA256(awsSignatureKey, stringToSign);
 }
 
-/*
-    Generates a new AWS signing key when required. This will typically happen
-    on the first call or when the key expires. QtS3 expires the key after one
-    day, well before the (current) AWS 7-day expiry period. The key is tied
-    to the bucket region and the s3 service. Returns whether the a key was
-    created.
-*/
+// Generates a new AWS signing key when required. This will typically happen
+// on the first call or when the key expires. QtS3 expires the key after one
+// day, well before the (current) AWS 7-day expiry period. The key is tied
+// to the bucket region and the s3 service. Returns whether the a key was
+// created.
 bool QtS3Private::checkGenerateAwsSigningKey(QByteArray *currentKey, QDateTime *currentKeyTimestamp,
                                              const QDateTime &now,
                                              const QByteArray &secretAccessKey,
@@ -285,37 +272,6 @@ bool QtS3Private::checkGenerateAwsSigningKey(QByteArray *currentKey, QDateTime *
     return true;
 }
 
-QMap<QByteArray, QByteArray>
-QtS3Private::canonicalHeaders(const QHash<QByteArray, QByteArray> &headers)
-{
-    QMap<QByteArray, QByteArray> canonical;
-
-    for (auto it = headers.begin(); it != headers.end(); ++it)
-        canonical[it.key().toLower()] = it.value().trimmed();
-    return canonical;
-}
-
-QByteArray QtS3Private::canonicalRequest(const QByteArray &method, const QByteArray &uri,
-                                         const QByteArray &queryString,
-                                         const QHash<QByteArray, QByteArray> &headers,
-                                         const QByteArray &payloadHash)
-{
-    QByteArray request;
-    request += method + "\n";
-    request += uri + "\n";
-    request += queryString + "\n";
-    const auto canon = canonicalHeaders(headers);
-    for (auto it = canon.begin(); it != canon.end(); ++it)
-        request += it.key() + ":" + it.value() + "\n";
-    request += "\n";
-    for (auto it = canon.begin(); it != canon.end(); ++it)
-        request += it.key() + ";";
-    request.chop(1); // remove final ";"
-    request += "\n";
-    request += payloadHash;
-    return request;
-}
-
 QByteArray QtS3Private::awsStringToSign(const QDateTime &timeStamp, const QByteArray &region,
                                         const QByteArray &service,
                                         const QByteArray &canonicalRequestHash)
@@ -324,6 +280,122 @@ QByteArray QtS3Private::awsStringToSign(const QDateTime &timeStamp, const QByteA
                         + awsDate(timeStamp.date()) + "/" + region + "/" + service
                         + "/aws4_request\n" + canonicalRequestHash;
     return string;
+}
+
+QByteArray QtS3Private::awsAuthorizationHeader(const QByteArray &awsAccessKeyId, const QDateTime &timeStamp, const QByteArray &region,
+                                               const QByteArray &service, const QByteArray &signedHeaders,
+                                               const QByteArray &signature)
+{
+    QByteArray headerValue =
+                        "AWS4-HMAC-SHA256 "
+                        "Credential=" + awsAccessKeyId + "/"
+                      + awsDate(timeStamp.date()) + "/" + region + "/" + service
+                      + "/aws4_request, " +
+                      + "SignedHeaders=" + signedHeaders + ", "
+                      + "Signature=" + signature;
+    return headerValue;
+}
+
+// Canonicalizes a list of http headers.
+//    * sorted on header key (using QMap)
+//    * whitespace trimmed.
+QMap<QByteArray, QByteArray> QtS3Private::canonicalHeaders(const QHash<QByteArray, QByteArray> &headers)
+{
+    QMap<QByteArray, QByteArray> canonical;
+
+    for (auto it = headers.begin(); it != headers.end(); ++it)
+        canonical[it.key().toLower()] = it.value().trimmed();
+    return canonical;
+}
+
+// Copies the request headers form a QNetworkRequest
+QHash<QByteArray, QByteArray> QtS3Private::requestHeaders(const QNetworkRequest *request)
+{
+    QHash<QByteArray, QByteArray> headers;
+    for (const QByteArray &header : request->rawHeaderList()) {
+        headers.insert(header, request->rawHeader(header));
+    }
+    return headers;
+}
+
+// Creates newline-separated list of headers on the "name:values" form
+QByteArray headerNameValueList(const QMap<QByteArray, QByteArray> &headers)
+{
+    QByteArray nameValues;
+    for (auto it = headers.begin(); it != headers.end(); ++it)
+        nameValues += it.key() + ":" + it.value() + "\n";
+    return nameValues;
+}
+
+// Creates a semicolon-separated list of header names
+QByteArray headerNameList(const QMap<QByteArray, QByteArray> &headers)
+{
+    QByteArray names;
+    for (auto it = headers.begin(); it != headers.end(); ++it)
+        names += it.key() + ";";
+    names.chop(1); // remove final ";"
+    return names;
+}
+
+// Creates a canonical request string (example):
+//     POST
+//     /
+//
+//     content-type:application/x-www-form-urlencoded; charset=utf-8\n
+//     host:iam.amazonaws.com\n
+//     x-amz-date:20110909T233600Z\n
+//
+//     content-type;host;x-amz-date\n
+//     b6359072c78d70ebee1e81adcbab4f01bf2c23245fa365ef83fe8f1f955085e2
+QByteArray QtS3Private::canonicalRequest(const QByteArray &method, const QByteArray &uri,
+                                         const QByteArray &queryString,
+                                         const QHash<QByteArray, QByteArray> &headers,
+                                         const QByteArray &payloadHash)
+{
+    const auto canon = canonicalHeaders(headers);
+
+    QByteArray request;
+    request += method + "\n";
+    request += uri + "\n";
+    request += queryString + "\n";
+    request += headerNameValueList(canon);
+    request += "\n";
+    request += headerNameList(canon);
+    request += "\n";
+    request += payloadHash;
+    return request;
+}
+
+QByteArray QtS3Private::awsRequestSignature(const QHash<QByteArray, QByteArray> headers, const QByteArray &verb, const QByteArray &url,
+                                            const QByteArray &payload, const QByteArray &signingKey,
+                                            const QDateTime &dateTime, const QByteArray &region,
+                                            const QByteArray &service)
+{
+    // create canonical request representation and hash
+    QByteArray payloadHash = SHA256(payload).toHex();
+    QByteArray canon = canonicalRequest(verb, url, QByteArray(),
+                                        headers, payloadHash);
+    QByteArray canonialRequestHash = SHA256(canon).toHex();
+
+    // create (and sign) stringToSign
+    QByteArray stringToSign = awsStringToSign(dateTime, region, service, canonialRequestHash);
+    QByteArray signature = HMAC_SHA256(signingKey, stringToSign);
+}
+
+QByteArray QtS3Private::authorizationHeaderValue(const QHash<QByteArray, QByteArray> headers, const QByteArray &verb, const QByteArray &url,
+                                                 const QByteArray &payload, const QByteArray accessKeyId, const QByteArray &signingKey,
+                                                 const QDateTime &dateTime, const QByteArray &region,
+                                                 const QByteArray &service)
+{
+    // sign request
+    QByteArray signature  = awsRequestSignature(headers, verb, url,
+                                                payload, signingKey, dateTime, region, service);
+
+    // crate Authorization header;
+    QByteArray headerNames = headerNameList(canonicalHeaders(headers));
+    QByteArray authHeader = awsAuthorizationHeader(accessKeyId, dateTime, region, service,
+                                                   headerNames, signature.toHex());
+    return authHeader;
 }
 
 QNetworkRequest *QtS3Private::createS3Request(const QUrl &uri,
@@ -343,25 +415,21 @@ QNetworkRequest *QtS3Private::createS3Request(const QUrl &uri,
     return request;
 }
 
+// Signs an aws request by adding an authorization header
 void QtS3Private::signAwsRequest(QNetworkRequest *request, const QByteArray &verb,
-                                 const QByteArray &payload, const QByteArray &signingKey,
+                                 const QByteArray &payload, const QByteArray accessKeyId, const QByteArray &signingKey,
                                  const QDateTime &dateTime, const QByteArray &region,
                                  const QByteArray &service)
 {
     // get headers from request
-    QHash<QByteArray, QByteArray> headers;
-    for (const QByteArray &header : request->rawHeaderList()) {
-        headers.insert(header, request->rawHeader(header));
-    }
+    QHash<QByteArray, QByteArray> headers = requestHeaders(request);
+    QByteArray url = request->url().toString().toLatin1();
 
-    // create canonical request representation and hash
-    qDebug() << request->url().toString();
-    QByteArray payloadHash = SHA256(payload).toHex();
-    QByteArray canon = canonicalRequest(verb, request->url().toString().toLatin1(), QByteArray(),
-                                        headers, payloadHash);
-    QByteArray canonialRequestHash = SHA256(canon).toHex();
-
-    // QByteArray sts = =
+    // create authorization header (value)
+    QByteArray authHeaderValue = authorizationHeaderValue(headers, verb, url, payload, accessKeyId,
+                                                          signingKey, dateTime, region, service);
+    // add authorization header to request
+    request->setRawHeader("Authorization", authHeaderValue);
 }
 
 void QtS3Private::checkGenerateS3SigningKey()
@@ -383,7 +451,7 @@ QNetworkRequest *QtS3Private::createS3Request(const QByteArray &verb, const QUrl
 
     // Create and sign request
     QNetworkRequest *request = createS3Request(uri, headers, requestTime, host);
-    signAwsRequest(request, verb, payload, currents3SigningKey, requestTime, region, service);
+    signAwsRequest(request, verb, payload, m_accessKeyId, currents3SigningKey, requestTime, region, service);
     return request;
 }
 
