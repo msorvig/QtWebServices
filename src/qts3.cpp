@@ -2,179 +2,6 @@
 
 #include <QtCore>
 
-// use libaws?
-//#define USE_LIBAWS 1
-#ifdef USE_LIBAWS
-
-#include <sstream>
-#include <aws.h>
-using namespace aws;
-
-class QtS3Private
-{
-public:
-    int errorState;
-    QString errorString;
-
-    QString m_accessKeyId;
-    QString m_secretAccessKey;
-
-    QByteArray awsSigningKey(const QByteArray &secretAccessKey);
-    QByteArray awsSignature(const QByteArray &secretAccessKey);
-};
-
-QtS3::QtS3(const QString &accessKeyId, const QString &secretAccessKey)
-    :d(new QtS3Private)
-{
-    d->errorState = 0;
-    d->m_accessKeyId = accessKeyId;
-    d->m_secretAccessKey = secretAccessKey;
-
-    if (d->m_accessKeyId.isEmpty()) {
-        d->errorState = 1;
-        d->errorString = "access key id not set";
-    }
-
-    if (d->m_secretAccessKey.isEmpty()) {
-        d->errorState = 1;
-        d->errorString += "/secret access key not set";
-    }
-}
-
-QtS3::~QtS3()
-{
-    delete d;
-}
-
-int QtS3::errorCode()
-{
-    return d->errorState;
-}
-
-QString QtS3::errorString()
-{
-    return d->errorString;
-}
-
-void QtS3::clearErrorState()
-{
-    d->errorState = 0;
-    d->errorString.clear();
-}
-
-int QtS3::put(const QString &bucketName, const QString &path, const QByteArray &content, const QStringList &headers)
-{
-    if (d->errorState)
-        return d->errorState;
-
-    if (bucketName.isEmpty()) {
-        d->errorState = 1;
-        d->errorString = QStringLiteral("Bucket name is empty");
-    }
-
-    aws::S3ConnectionPtr lS3Rest;
-
-    try {
-        AWSConnectionFactory* lFactory = AWSConnectionFactory::getInstance();
-        lS3Rest = lFactory->createS3Connection(d->m_accessKeyId.toStdString(), d->m_secretAccessKey.toStdString());
-
-        // Check for existing bucket?
-        //ListAllBucketsResponsePtr lListBucket = lS3Rest->listBucket(bucketName.toStdString());
-
-        // Create bucket. Will succeed if the bucket name is available or we already own the bucket
-        // Will fail if the bucket name is taken (the bucket namespace is shared among all users)
-//        CreateBucketResponsePtr lCreateBucket = lS3Rest->createBucket(bucketName.toStdString());
-        //std::cout << "Bucket created successfully" << std::endl;
-        //std::cout << "  Location: " << lCreateBucket->getLocation() << std::endl;
-        //std::cout << "  Date: " << lCreateBucket->getDate() << std::endl;
-        //if (!lCreateBucket->getETag().empty())
-        //  std::cout << "  ETag: " << lCreateBucket->getETag() << std::endl;
-        //std::cout << "  x-amz-id-2: " << lCreateBucket->getAmazonId() << std::endl;
-        //std::cout << "  x-amz-request-id: " << lCreateBucket->getRequestId() << std::endl;
-
-        // Parse headers
-        std::string contentType;
-        std::map<std::string, std::string> headerMap;
-        foreach (const QString &header, headers) {
-            QStringList parts = header.split(":");
-            if (parts.count() != 2) {
-                d->errorString = QStringLiteral("QtS3::put headers parse error: format should be\"Key:Value\"");
-                return 1;
-            }
-
-            // Special case for content type due to libaws API.
-            if (parts.at(0).contains("Content-Type")) {
-                contentType = parts.at(1).toStdString();
-            } else {
-                headerMap.insert(std::make_pair(parts.at(0).toStdString(), parts.at(1).toStdString()));
-            }
-        }
-
-        std::stringstream stream;
-        stream.rdbuf()->pubsetbuf(const_cast<char *>(content.data()), content.length());
-        PutResponsePtr lPut = lS3Rest->put(bucketName.toStdString(), path.toStdString(), stream, contentType, &headerMap);
-    } catch (aws::AWSConnectionException& e) {
-        d->errorString = QString::fromStdString(e.what());
-        d->errorState = 1;
-    } catch (aws::S3Exception& awse) {
-        d->errorString = QString::fromStdString(awse.what());
-        d->errorState = awse.getErrorCode();
-    } catch (...) {
-        d->errorString = "Some error";
-        d->errorState = 1;
-    }
-
-    return d->errorState;
-}
-
-int QtS3::exists(const QString &bucketName, const QString &path)
-{
-    aws::S3ConnectionPtr lS3Rest;
-    int code = 0;
-    try {
-        AWSConnectionFactory* lFactory = AWSConnectionFactory::getInstance();
-        lS3Rest = lFactory->createS3Connection(d->m_accessKeyId.toStdString(), d->m_secretAccessKey.toStdString());
-        lS3Rest->head(bucketName.toStdString(), path.toStdString());
-        return code;
-    } catch (aws::AWSConnectionException& e) {
-        d->errorString = QString::fromStdString(e.what());
-        d->errorState = 1;
-    } catch (aws::S3Exception& awse) {
-        d->errorString = QString::fromStdString(awse.what());
-        code = awse.getErrorCode();
-    } catch (...) {
-        d->errorString = "Some error";
-        d->errorState = 1;
-    }
-    return code;
-}
-
-QtS3Optional<QByteArray> QtS3::get(const QString &bucketName, const QString &path)
-{
-    QByteArray contents;
-    aws::S3ConnectionPtr lS3Rest;
-    int code = 0;
-    try {
-        AWSConnectionFactory *lFactory = AWSConnectionFactory::getInstance();
-        lS3Rest = lFactory->createS3Connection(d->m_accessKeyId.toStdString(),
-                                               d->m_secretAccessKey.toStdString());
-        lS3Rest->get(bucketName.toStdString(), path.toStdString());
-        return QtS3Optional<QByteArray>(contents);
-    } catch (aws::AWSConnectionException &e) {
-        d->errorString = QString::fromStdString(e.what());
-        d->errorState = 1;
-    } catch (aws::S3Exception &awse) {
-        d->errorString = QString::fromStdString(awse.what());
-        code = awse.getErrorCode();
-    } catch (...) {
-        d->errorString = "Some error";
-        d->errorState = 1;
-    }
-    return QtS3Optional<QByteArray>(contents);
-}
-
-#else
-
 #include "qts3_p.h"
 
 
@@ -198,6 +25,8 @@ QtS3Optional<QByteArray> QtS3::get(const QString &bucketName, const QString &pat
 
 //
 //  Control flow
+//  checkGenerateSigningKey
+//      deriveSigningKey
 //
 //  createAuthorizationHeader
 //      signRequestData
@@ -217,6 +46,15 @@ QtS3Optional<QByteArray> QtS3::get(const QString &bucketName, const QString &pat
 //        QByteArray
 //
 //
+
+QtS3Private::QtS3Private() : m_networkAccessManager(0) {}
+
+QtS3Private::QtS3Private(QByteArray accessKeyId, QByteArray secretAccessKey)
+    : m_accessKeyId(accessKeyId), m_secretAccessKey(secretAccessKey),
+      m_networkAccessManager(new QNetworkAccessManager)
+{
+    init();
+}
 
 //  Returns a date formatted as YYYYMMDD.
 QByteArray QtS3Private::formatDate(const QDate &date)
@@ -343,6 +181,16 @@ QHash<QByteArray, QByteArray> QtS3Private::requestHeaders(const QNetworkRequest 
     return headers;
 }
 
+QHash<QByteArray, QByteArray> QtS3Private::parseHeaderList(const QStringList &headers)
+{
+    QHash<QByteArray, QByteArray> parsedHeaders;
+    foreach (const QString &header, headers) {
+        QStringList parts = header.split(":");
+        parsedHeaders.insert(parts.at(0).toLatin1(), parts.at(1).toLatin1());
+    }
+    return parsedHeaders;
+}
+
 // Creates a canonical request string (example):
 //     POST
 //     /
@@ -361,9 +209,12 @@ QByteArray QtS3Private::formatCanonicalRequest(const QByteArray &method, const Q
     const auto canon = canonicalHeaders(headers);
 
     QByteArray request;
-    request += method + "\n";
-    request += url + "\n";
-    request += queryString + "\n";
+    request += method;
+    request += "\n";
+    request += url;
+    request += "\n";
+    request += queryString;
+    request += "\n";
     request += formatHeaderNameValueList(canon);
     request += "\n";
     request += formatHeaderNameList(canon);
@@ -372,49 +223,52 @@ QByteArray QtS3Private::formatCanonicalRequest(const QByteArray &method, const Q
     return request;
 }
 
-QByteArray QtS3Private::signRequestData(const QHash<QByteArray, QByteArray> headers, const QByteArray &verb, const QByteArray &url,
-                                            const QByteArray &payload, const QByteArray &signingKey,
-                                            const QDateTime &dateTime, const QByteArray &region,
-                                            const QByteArray &service)
+QByteArray QtS3Private::signRequestData(const QHash<QByteArray, QByteArray> headers,
+                                        const QByteArray &verb, const QByteArray &url,
+                                        const QByteArray &queryString, const QByteArray &payload,
+                                        const QByteArray &signingKey, const QDateTime &dateTime,
+                                        const QByteArray &region, const QByteArray &service)
 {
     // create canonical request representation and hash
     QByteArray payloadHash = hash(payload).toHex();
-    QByteArray canonoicalRequest = formatCanonicalRequest(verb, url, QByteArray(), headers, payloadHash);
+    QByteArray canonoicalRequest
+        = formatCanonicalRequest(verb, url, queryString, headers, payloadHash);
     QByteArray canonialRequestHash = hash(canonoicalRequest).toHex();
 
     // create (and sign) stringToSign
     QByteArray stringToSign = formatStringToSign(dateTime, region, service, canonialRequestHash);
     QByteArray signature = sign(signingKey, stringToSign);
+    return signature;
 }
 
-QByteArray QtS3Private::createAuthorizationHeader(const QHash<QByteArray, QByteArray> headers, const QByteArray &verb, const QByteArray &url,
-                                                 const QByteArray &payload, const QByteArray accessKeyId, const QByteArray &signingKey,
-                                                 const QDateTime &dateTime, const QByteArray &region,
-                                                 const QByteArray &service)
+QByteArray QtS3Private::createAuthorizationHeader(
+    const QHash<QByteArray, QByteArray> headers, const QByteArray &verb, const QByteArray &url,
+    const QByteArray &queryString, const QByteArray &payload, const QByteArray accessKeyId,
+    const QByteArray &signingKey, const QDateTime &dateTime, const QByteArray &region,
+    const QByteArray &service)
 {
     // sign request
-    QByteArray signature = signRequestData(headers, verb, url, payload, signingKey, dateTime, region, service);
+    QByteArray signature = signRequestData(headers, verb, url, queryString, payload, signingKey,
+                                           dateTime, region, service);
 
     // crate Authorization header;
     QByteArray headerNames = formatHeaderNameList(canonicalHeaders(headers));
     return formatAuthorizationHeader(accessKeyId, dateTime, region, service, headerNames, signature.toHex());
 }
 
-QNetworkRequest *QtS3Private::createRequest(const QUrl &url,
-                                            const QHash<QByteArray, QByteArray> &headers,
-                                            const QDateTime &timeStamp, const QByteArray &host)
+void QtS3Private::setRequestAttributes(QNetworkRequest *request, const QUrl &url,
+                                       const QHash<QByteArray, QByteArray> &headers,
+                                       const QDateTime &timeStamp, const QByteArray &host)
 {
     // Build request from user input
-    QNetworkRequest *request = new QNetworkRequest();
     request->setUrl(url);
     for (auto it = headers.begin(); it != headers.end(); ++it)
         request->setRawHeader(it.key(), it.value());
 
     // Add standard AWS headers
+    request->setRawHeader("User-Agent", "Qt");
     request->setRawHeader("Host", host);
     request->setRawHeader("X-Amz-Date", formatDateTime(timeStamp));
-
-    return request;
 }
 
 // Signs an aws request by adding an authorization header
@@ -423,15 +277,41 @@ void QtS3Private::signRequest(QNetworkRequest *request, const QByteArray &verb,
                                  const QDateTime &dateTime, const QByteArray &region,
                                  const QByteArray &service)
 {
+
+    QByteArray payloadHash = hash(payload).toHex();
+    request->setRawHeader("x-amz-content-sha256", payloadHash);
+
     // get headers from request
     QHash<QByteArray, QByteArray> headers = requestHeaders(request);
-    QByteArray url = request->url().toString().toLatin1();
-
+    QUrl url = request->url();
     // create authorization header (value)
-    QByteArray authHeaderValue = createAuthorizationHeader(headers, verb, url, payload, accessKeyId,
-                                                           signingKey, dateTime, region, service);
+    QByteArray authHeaderValue
+        = createAuthorizationHeader(headers, verb, url.path().toLatin1(), url.query().toLatin1(),
+                                    payload, accessKeyId, signingKey, dateTime, region, service);
+    qDebug() << authHeaderValue;
+
     // add authorization header to request
     request->setRawHeader("Authorization", authHeaderValue);
+}
+
+//
+// Stateful non-static functons below
+//
+
+void QtS3Private::init()
+{
+    if (m_accessKeyId.isEmpty()) {
+        qWarning() << "access key id not set";
+    }
+
+    if (m_secretAccessKey.isEmpty()) {
+        qWarning() << "secret access key not set";
+    }
+
+    m_region = "us-east-1";
+    m_service = "s3";
+
+    m_networkAccessManager = new QNetworkAccessManager();
 }
 
 void QtS3Private::checkGenerateS3SigningKey()
@@ -439,91 +319,186 @@ void QtS3Private::checkGenerateS3SigningKey()
     QDateTime now = QDateTime::currentDateTimeUtc();
     // lock
     checkGenerateSigningKey(&currents3SigningKey, &s3SigningKeyTimeStamp, now, m_secretAccessKey,
-                               region, service);
+                            m_region, m_service);
     // std::tuple keyTimeCopy { currents3SigningKey, s3SigningKeyTimeStamp };
     // return keyTimeCopy;
 }
 
 QNetworkRequest *QtS3Private::createSignedRequest(const QByteArray &verb, const QUrl &url,
-                                              const QHash<QByteArray, QByteArray> &headers,
-                                              const QByteArray &payload)
+                                                  const QHash<QByteArray, QByteArray> &headers,
+                                                  const QByteArray &host, const QByteArray &payload)
 {
     checkGenerateS3SigningKey();
     QDateTime requestTime = QDateTime::currentDateTimeUtc();
 
     // Create and sign request
-    QNetworkRequest *request = createRequest(url, headers, requestTime, host);
-    signRequest(request, verb, payload, m_accessKeyId, currents3SigningKey, requestTime, region, service);
+    QNetworkRequest *request = new QNetworkRequest();
+    setRequestAttributes(request, url, headers, requestTime, host);
+    signRequest(request, verb, payload, m_accessKeyId, currents3SigningKey, requestTime, m_region,
+                m_service);
     return request;
 }
 
-void QtS3Private::sendRequest(const QByteArray &verb, QNetworkRequest *request,
-                              const QByteArray &payload)
+namespace
 {
-    // Send requiest
-    // QNetworkAccessManager::sendCustomRequest();
-
-    // Wait for reply
+// The read buffer for the current in-flight request. The synchronous API guarantees
+// that there will be only one reuest in progress per thread at any time.
+__thread QBuffer *m_inFlightBuffer = 0;
 }
 
-// http://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-authenticating-requests.html
-// http://stackoverflow.com/questions/27091816/retrieve-buckets-objects-without-knowing-buckets-region-with-aws-s3-rest-api
-// http://docs.aws.amazon.com/general/latest/gr/sigv4-calculate-signature.html
-// http://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html
+QNetworkReply *QtS3Private::sendRequest(const QByteArray &verb, const QNetworkRequest &request,
+                                        const QByteArray &payload)
+{
+
+    m_inFlightBuffer = 0;
+    if (!payload.isEmpty()) {
+        m_inFlightBuffer = new QBuffer(const_cast<QByteArray *>(&payload));
+        m_inFlightBuffer->open(QIODevice::ReadOnly);
+    }
+
+    // Send request
+    QNetworkReply *reply
+        = m_networkAccessManager->sendCustomRequest(request, verb, m_inFlightBuffer);
+    return reply;
+}
+
+QNetworkReply *QtS3Private::sendS3Request(const QByteArray &bucketName, const QByteArray &verb,
+                                          const QString &path, const QByteArray &queryString,
+                                          const QByteArray &content, const QStringList &headers)
+{
+    const QByteArray host = bucketName + ".s3.amazonaws.com";
+    const QByteArray url = "https://" + host + path.toLatin1() + "?" + queryString;
+
+    QHash<QByteArray, QByteArray> hashHeaders = parseHeaderList(headers);
+
+    QNetworkRequest *request = createSignedRequest(verb, QUrl(url), hashHeaders, host, content);
+    return sendRequest(verb, *request, content);
+}
+
+void QtS3Private::waitForFinished(QNetworkReply *reply)
+{
+    // QNetworkReply does not implement waitForReadyRead(),
+    // this seems to be the best way to wait.
+    QEventLoop loop;
+    QObject::connect(reply, SIGNAL(finished()), &loop, SLOT(quit()));
+    loop.exec();
+    delete m_inFlightBuffer;
+    m_inFlightBuffer = 0;
+}
+
+QByteArray QtS3Private::location(const QByteArray &bucketName)
+{
+    if (bucketName.isEmpty()) {
+        qWarning() << "QtS3: Bucket name is empty";
+        return QByteArray();
+    }
+
+    QNetworkReply *reply
+        = sendS3Request(bucketName, "GET", "/", "?location", QByteArray(), QStringList());
+    waitForFinished(reply);
+    QByteArray replyContent = reply->readAll();
+    delete reply;
+
+    return replyContent;
+}
+
+bool QtS3Private::put(const QByteArray &bucketName, const QString &path, const QByteArray &content,
+                      const QStringList &headers)
+{
+    if (bucketName.isEmpty()) {
+        qWarning() << "QtS3: Bucket name is empty";
+        return false;
+    }
+
+    QNetworkReply *reply = sendS3Request(bucketName, "PUT", path, QByteArray(), content, headers);
+    waitForFinished(reply);
+    QByteArray replyContent = reply->readAll();
+    delete reply;
+
+    return true;
+}
+
+bool QtS3Private::exists(const QByteArray &bucketName, const QString &path)
+{
+    if (bucketName.isEmpty()) {
+        qWarning() << "QtS3: Bucket name is empty";
+        return false;
+    }
+
+    QNetworkReply *reply
+        = sendS3Request(bucketName, "HEAD", path, QByteArray(), QByteArray(), QStringList());
+    waitForFinished(reply);
+    QByteArray replyContent = reply->readAll();
+    delete reply;
+
+    bool e = false;
+    return false;
+}
+
+QtS3Optional<QByteArray> QtS3Private::get(const QByteArray &bucketName, const QString &path)
+{
+    if (bucketName.isEmpty()) {
+        qWarning() << "QtS3: Bucket name is empty";
+        return QtS3Optional<QByteArray>();
+    }
+
+    QNetworkReply *reply
+        = sendS3Request(bucketName, "GET", path, QByteArray(), QByteArray(), QStringList());
+    waitForFinished(reply);
+    QByteArray replyContent = reply->readAll();
+    delete reply;
+
+    return QtS3Optional<QByteArray>(replyContent);
+}
+
+bool QtS3Private::get(QByteArray *destination, const QByteArray &bucketName, const QString &path)
+{
+    if (bucketName.isEmpty()) {
+        qWarning() << "QtS3: Bucket name is empty";
+        return false;
+    }
+
+    QNetworkReply *reply
+        = sendS3Request(bucketName, "GET", path, QByteArray(), QByteArray(), QStringList());
+    waitForFinished(reply);
+    reply->read(destination->data(), destination->size());
+    delete reply;
+
+    return false;
+}
+
+//
+// QtS3 public class implementation
+//
 
 QtS3::QtS3(const QString &accessKeyId, const QString &secretAccessKey) : d(new QtS3Private)
 {
-    d->errorState = 0;
-#ifdef USE_LIBAWS
-    d->m_accessKeyId = accessKeyId;
-    d->m_secretAccessKey = secretAccessKey;
-#else
     d->m_accessKeyId = accessKeyId.toLatin1();
     d->m_secretAccessKey = secretAccessKey.toLatin1();
-#endif
-    if (d->m_accessKeyId.isEmpty()) {
-        d->errorState = 1;
-        d->errorString = "access key id not set";
-    }
 
-    if (d->m_secretAccessKey.isEmpty()) {
-        d->errorState = 1;
-        d->errorString += "/secret access key not set";
-    }
+    d->init();
 }
 
 QtS3::~QtS3() { delete d; }
 
-int QtS3::errorCode() { return d->errorState; }
-
-QString QtS3::errorString() { return d->errorString; }
-
-void QtS3::clearErrorState()
+bool QtS3::put(const QByteArray &bucketName, const QString &path, const QByteArray &content,
+               const QStringList &headers)
 {
-    d->errorState = 0;
-    d->errorString.clear();
+    return d->put(bucketName, path, content, headers);
 }
 
-int QtS3::put(const QString &bucketName, const QString &path, const QByteArray &content,
-              const QStringList &headers)
+bool QtS3::exists(const QByteArray &bucketName, const QString &path)
 {
-    if (bucketName.isEmpty()) {
-        qWarning() << "Bucket name is empty";
-    }
-
-    return 0;
+    return d->exists(bucketName, path);
 }
 
-int QtS3::exists(const QString &bucketName, const QString &path)
+QtS3Optional<QByteArray> QtS3::get(const QByteArray &bucketName, const QString &path)
 {
-    int code = 0;
-    return code;
+    return d->get(bucketName, path);
 }
 
-QtS3Optional<QByteArray> QtS3::get(const QString &bucketName, const QString &path)
+bool QtS3::get(QByteArray *destination, const QByteArray &bucketName, const QString &path)
 {
-    QByteArray contents;
-    return QtS3Optional<QByteArray>(contents);
+    return d->get(destination, bucketName, path);
 }
 
-#endif

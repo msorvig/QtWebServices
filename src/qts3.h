@@ -26,14 +26,12 @@ class QtS3
 public:
     QtS3(const QString &accessKeyId, const QString &secretAccessKey);
     ~QtS3();
-    
-    int put(const QString &bucketName, const QString &path, const QByteArray &content, const QStringList &headers);
-    int exists(const QString &bucketName, const QString &path);
-    QtS3Optional<QByteArray> get(const QString &bucketName, const QString &path);
 
-    int errorCode();
-    QString errorString();
-    void clearErrorState();
+    bool put(const QByteArray &bucketName, const QString &path, const QByteArray &content,
+             const QStringList &headers);
+    bool exists(const QByteArray &bucketName, const QString &path);
+    QtS3Optional<QByteArray> get(const QByteArray &bucketName, const QString &path);
+    bool get(QByteArray *destination, const QByteArray &bucketName, const QString &path);
 
 private:
     QtS3Private *d;
