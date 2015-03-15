@@ -33,6 +33,7 @@ public:
     static QByteArray formatDateTime(const QDateTime &dateTime);
     static QByteArray formatHeaderNameValueList(const QMap<QByteArray, QByteArray> &headers);
     static QByteArray formatHeaderNameList(const QMap<QByteArray, QByteArray> &headers);
+    static QByteArray createCanonicalQueryString(const QByteArray &queryString);
     static QMap<QByteArray, QByteArray> canonicalHeaders(const QHash<QByteArray, QByteArray> &headers);
     static QHash<QByteArray, QByteArray> parseHeaderList(const QStringList &headers);
     static QByteArray formatCanonicalRequest(const QByteArray &method, const QByteArray &url,

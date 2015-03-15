@@ -112,6 +112,31 @@ QByteArray QtS3Private::formatHeaderNameList(const QMap<QByteArray, QByteArray> 
     return names;
 }
 
+QByteArray QtS3Private::createCanonicalQueryString(const QByteArray &queryString)
+{
+    // General querystring form
+    // "Foo1=bar1&"
+    // "Foo2=bar2&"
+
+    // remove any leading '?'
+    QByteArray input = queryString;
+    if (input.startsWith("?"))
+        input.remove(0, 1);
+    // split and sort querty parts
+    QList<QByteArray> parts = input.split('&');
+    qSort(parts);
+    // write out percent encoded canonical string.
+    QByteArray canonicalQuery;
+    canonicalQuery.reserve(queryString.size());
+    foreach (const QByteArray &part, parts) {
+        canonicalQuery.append(part.toPercentEncoding("=%")); // skip = and % for aws complicance
+        canonicalQuery.append('&');
+    }
+    canonicalQuery.chop(1); // remove final '&'
+
+    return canonicalQuery;
+}
+
 //  Derives an AWS version 4 signing key. \a secretAccessKey is the aws secrect key,
 //  \a dateString is a YYYYMMDD date. The signing key is valid for a limited number of days
 //  (currently 7). \a region is the bucket region, for example "us-east-1". \a service the
@@ -201,18 +226,21 @@ QByteArray QtS3Private::formatCanonicalRequest(const QByteArray &method, const Q
                                                const QHash<QByteArray, QByteArray> &headers,
                                                const QByteArray &payloadHash)
 {
-    const auto canon = canonicalHeaders(headers);
+    const auto canonHeaders = canonicalHeaders(headers);
+    const int estimatedLength = method.length() + url.length() + queryString.length()
+                                + canonHeaders.size() * 10 + payloadHash.length();
 
     QByteArray request;
+    request.reserve(estimatedLength);
     request += method;
     request += "\n";
     request += url;
     request += "\n";
-    request += queryString;
+    request += createCanonicalQueryString(queryString);
     request += "\n";
-    request += formatHeaderNameValueList(canon);
+    request += formatHeaderNameValueList(canonHeaders);
     request += "\n";
-    request += formatHeaderNameList(canon);
+    request += formatHeaderNameList(canonHeaders);
     request += "\n";
     request += payloadHash;
     return request;
