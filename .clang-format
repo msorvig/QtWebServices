@@ -8,6 +8,7 @@
 #   IndentWidth: 4, 
 #   BreakBeforeBraces: Linux
 #   PenaltyReturnTypeOnItsOwnLine: 600
+#   BreakBeforeBinaryOperators: NonAssignment
 #   }" -dump-config > .clang-format
 # 
 #  Also see: https://llvm.org/svn/llvm-project/cfe/trunk/tools/clang-format/git-clang-format
@@ -27,7 +28,7 @@ AllowShortFunctionsOnASingleLine: All
 AlwaysBreakAfterDefinitionReturnType: false
 AlwaysBreakTemplateDeclarations: false
 AlwaysBreakBeforeMultilineStrings: false
-BreakBeforeBinaryOperators: All
+BreakBeforeBinaryOperators: NonAssignment
 BreakBeforeTernaryOperators: true
 BreakConstructorInitializersBeforeComma: false
 BinPackParameters: true
