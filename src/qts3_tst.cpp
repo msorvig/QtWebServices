@@ -27,9 +27,17 @@ private slots:
     // QNetworkRequest creation and signing
     void createAndSignRequest();
 
+    // AWS test data
+    void awsTestSuite_data();
+    void awsTestSuite();
+
     // Integration tests that require netowork access
     // and access to a test bucket on S3.
-    void bucketLocation();
+    void location();
+    void put();
+    void exists();
+    void size();
+    void get();
 };
 
 // test date and time formatting
@@ -60,17 +68,19 @@ void TestQtS3::checkGenerateSigningKey()
     QDateTime t3 = QDateTime(QDate(9999, 12, 30), QTime(23, 59)); // + many years: regenerates
     QDateTime t4 = QDateTime(QDate(4000, 12, 30), QTime(23, 59)); // negative: regenerates
 
-    QVERIFY(QtS3Private::checkGenerateSigningKey(&key, &keyTime, t0, AwsTestData::secretAccessKey,
+    QHash<QByteArray, QtS3Private::S3KeyStruct> signingKeys;
+
+    QVERIFY(QtS3Private::checkGenerateSigningKey(&signingKeys, t0, AwsTestData::secretAccessKey,
                                                  AwsTestData::region, AwsTestData::service));
-    QVERIFY(!QtS3Private::checkGenerateSigningKey(&key, &keyTime, t0, AwsTestData::secretAccessKey,
+    QVERIFY(!QtS3Private::checkGenerateSigningKey(&signingKeys, t0, AwsTestData::secretAccessKey,
                                                   AwsTestData::region, AwsTestData::service));
-    QVERIFY(!QtS3Private::checkGenerateSigningKey(&key, &keyTime, t1, AwsTestData::secretAccessKey,
+    QVERIFY(!QtS3Private::checkGenerateSigningKey(&signingKeys, t1, AwsTestData::secretAccessKey,
                                                   AwsTestData::region, AwsTestData::service));
-    QVERIFY(QtS3Private::checkGenerateSigningKey(&key, &keyTime, t2, AwsTestData::secretAccessKey,
+    QVERIFY(QtS3Private::checkGenerateSigningKey(&signingKeys, t2, AwsTestData::secretAccessKey,
                                                  AwsTestData::region, AwsTestData::service));
-    QVERIFY(QtS3Private::checkGenerateSigningKey(&key, &keyTime, t3, AwsTestData::secretAccessKey,
+    QVERIFY(QtS3Private::checkGenerateSigningKey(&signingKeys, t3, AwsTestData::secretAccessKey,
                                                  AwsTestData::region, AwsTestData::service));
-    QVERIFY(QtS3Private::checkGenerateSigningKey(&key, &keyTime, t4, AwsTestData::secretAccessKey,
+    QVERIFY(QtS3Private::checkGenerateSigningKey(&signingKeys, t4, AwsTestData::secretAccessKey,
                                                  AwsTestData::region, AwsTestData::service));
 }
 
@@ -166,7 +176,202 @@ void TestQtS3::createAndSignRequest()
     // QCOMPARE(request.rawHeader(authorizationHeaderName), AwsTestData::authorizationHeaderValue);
 }
 
-void TestQtS3::bucketLocation()
+// test using test data from the suite at
+// http://docs.aws.amazon.com/general/latest/gr/signature-v4-test-suite.html
+// expexts to find the data in $PWD/aws4_testsuite
+void TestQtS3::awsTestSuite_data()
+{
+    QTest::addColumn<QString>("fileName");
+    QStringList tests = QDir("./aws4_testsuite/").entryList(QStringList() << "*.req");
+    foreach (const QString &test, tests) {
+        QString baseName = test;
+        baseName.chop(4); // remove ".req" at end
+        QTest::newRow(baseName.toLatin1().constData()) << baseName;
+    }
+}
+
+QByteArray readFile(const QString &fileName)
+{
+    QFile f(fileName);
+    f.open(QIODevice::ReadOnly);
+    QByteArray contents = f.readAll();
+
+    contents.replace("\r", "");
+
+    return contents;
+}
+
+void TestQtS3::awsTestSuite()
+{
+    QFETCH(QString, fileName);
+
+    // skip multiline headers tests, test file format parser can't cope with it.
+    if (fileName.contains("multiline"))
+        QSKIP("");
+    if (fileName.contains("slash") || fileName.contains("relative"))
+        QSKIP("");
+    if (fileName.contains("duplicate") || fileName.contains("value-order"))
+        QSKIP("");
+    if (fileName.contains("nonunreserved") || fileName.contains("urlencoded"))
+        QSKIP("");
+
+    // fileName is the base name. The following files exist:
+    // .req : the input request
+    // .crec: canonical request
+    // .sts : string to sign
+    // .athz: authorization header (value)
+    // .sreq: signed request
+    QString requestFile = "./aws4_testsuite/" + fileName + ".req";
+    QString canonicalRequestFile = "./aws4_testsuite/" + fileName + ".creq";
+    QString stringToSignFile = "./aws4_testsuite/" + fileName + ".sts";
+    QString authorizationHeaderFile = "./aws4_testsuite/" + fileName + ".authz";
+    QString signedRequestFile = "./aws4_testsuite/" + fileName + ".sreq";
+
+    if (!QFile(requestFile).exists())
+        QSKIP("AWS test suite not found in aws4_testsuite");
+
+    // read and parse the request
+    QByteArray request = readFile(requestFile);
+
+    // first line VERB path query string
+    QList<QByteArray> lines = request.split('\n');
+    QList<QByteArray> line0Parts = lines[0].split(' ');
+    QByteArray verb = line0Parts[0];
+
+    QByteArray url = line0Parts[1];
+    QByteArray path;
+    QByteArray query;
+    int q = url.indexOf('?');
+    if (url.contains('?')) {
+        path = url.mid(0, q);
+        query = url.mid(q + 1);
+    } else {
+        path = url;
+    }
+
+    // next, headers
+    QHash<QByteArray, QByteArray> headers;
+    for (int i = 1; i < lines.count(); ++i) {
+        const QByteArray line = lines.at(i);
+        if (line.contains(':')) {
+            int c = line.indexOf(":");
+            QByteArray key = line.mid(0, c);
+            QByteArray value = line.mid(c + 1);
+            QByteArray currentValue = headers.value(key);
+            if (!currentValue.isEmpty())
+                currentValue.append(",");
+            currentValue.append(value), headers.insert(key, currentValue);
+        }
+    }
+    QByteArray payload; // empty.
+    QByteArray payloadHash = QtS3Private::hash(payload).toHex();
+
+    // create and compare canonical request
+    QByteArray canonicalRequest =
+        QtS3Private::formatCanonicalRequest(verb, path, query, headers, payloadHash);
+    QCOMPARE(canonicalRequest, readFile(canonicalRequestFile));
+
+    // create and compare string to sign
+    QDateTime timestamp(QDate(2011, 9, 9), QTime(23, 36, 0)); // <- fixed date for all tests
+    QByteArray region = "us-east-1";
+    QByteArray service = "host";
+    QByteArray canonicalRequestHash = QtS3Private::hash(canonicalRequest).toHex();
+    QByteArray stringToSign =
+        QtS3Private::formatStringToSign(timestamp, region, service, canonicalRequestHash);
+    QCOMPARE(stringToSign, readFile(stringToSignFile));
+
+    // create and compare authorization header
+    QByteArray accessKeyId = "AKIDEXAMPLE";
+    QByteArray secretAccessKey = "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY";
+    QByteArray signingKey = QtS3Private::deriveSigningKey(
+        secretAccessKey, QtS3Private::formatDate(timestamp.date()), region, service);
+    QByteArray authorizationHeader = QtS3Private::createAuthorizationHeader(
+        headers, verb, path, query, payload, accessKeyId, signingKey, timestamp, region, service);
+    QCOMPARE(authorizationHeader, readFile(authorizationHeaderFile));
+}
+
+void TestQtS3::location()
+{
+    // Get key id and secret key from environment
+    QByteArray awsKeyId = qgetenv("AWS_S3_ACCESS_KEY_ID");
+    QByteArray awsSecretKey = qgetenv("AWS_S3_SECRET_ACCESS_KEY");
+    if (awsKeyId.isEmpty())
+        QSKIP("AWS_S3_ACCESS_KEY_ID not set. This tests requires S3 access.");
+    if (awsSecretKey.isEmpty())
+        QSKIP("AWS_S3_SECRET_ACCESS_KEY not set. This tests requires S3 access.");
+
+    QtS3 s3(awsKeyId, awsSecretKey);
+
+    // Error case: empty bucket name
+    {
+        QtS3Reply<QByteArray> reply = s3.location("");
+        QVERIFY(!reply.isSuccess());
+        QCOMPARE(reply.s3Error(), QtS3ReplyBase::BucketNameInvalidError);
+    }
+
+    // Error case: bucket not found
+    {
+        QtS3Reply<QByteArray> reply =
+            s3.location("sdfkljrsldkfjsdlfkajsdflasdjfldksjfkjdhgfkjghfdkjg");
+        QVERIFY(!reply.isSuccess());
+        QCOMPARE(reply.s3Error(), QtS3ReplyBase::BucketNotFoundError);
+    }
+
+    // US bucket
+    {
+        QtS3Reply<QByteArray> reply = s3.location("qtestbucket-us");
+        QVERIFY(reply.isSuccess());
+        QCOMPARE(reply.value(), QByteArray("us-east-1"));
+    }
+
+    // EU bucket
+    {
+        QtS3Reply<QByteArray> reply = s3.location("qtestbucket-eu");
+        QVERIFY(reply.isSuccess());
+        QCOMPARE(reply.value(), QByteArray("eu-west-1"));
+    }
+}
+
+void TestQtS3::put()
+{
+    // Get key id and secret key from environment
+    QByteArray awsKeyId = qgetenv("AWS_S3_ACCESS_KEY_ID");
+    QByteArray awsSecretKey = qgetenv("AWS_S3_SECRET_ACCESS_KEY");
+    if (awsKeyId.isEmpty())
+        QSKIP("AWS_S3_ACCESS_KEY_ID not set. This tests requires S3 access.");
+    if (awsSecretKey.isEmpty())
+        QSKIP("AWS_S3_SECRET_ACCESS_KEY not set. This tests requires S3 access.");
+
+    QtS3 s3(awsKeyId, awsSecretKey);
+
+    // Error case - bucket not found
+    {
+        QtS3Reply<void> reply = s3.put("skfjhagkljdfhgslkdjhgsdlkfjghsdfklgjhsdflkgjshdflgkjsdfhg",
+                                       "foo-object", "foo-content", QStringList());
+        QVERIFY(!reply.isSuccess());
+        QCOMPARE(reply.s3Error(), QtS3ReplyBase::BucketNotFoundError);
+    }
+
+    // US bucket
+    {
+        QtS3Reply<void> reply =
+            s3.put("qtestbucket-us", "foo-object", "foo-content-us", QStringList());
+        QVERIFY(reply.isSuccess());
+        QCOMPARE(reply.s3Error(), QtS3ReplyBase::NoError);
+        QCOMPARE(reply.s3ErrorString(), QString());
+    }
+
+    // EU bucket
+    {
+        QtS3Reply<void> reply =
+            s3.put("qtestbucket-eu", "foo-object", "foo-content-eu", QStringList());
+        QVERIFY(reply.isSuccess());
+        QCOMPARE(reply.s3Error(), QtS3ReplyBase::NoError);
+        QCOMPARE(reply.s3ErrorString(), QString());
+    }
+}
+
+void TestQtS3::exists()
 {
     QByteArray awsKeyId = qgetenv("AWS_S3_ACCESS_KEY_ID");
     QByteArray awsSecretKey = qgetenv("AWS_S3_SECRET_ACCESS_KEY");
@@ -175,9 +380,94 @@ void TestQtS3::bucketLocation()
     if (awsSecretKey.isEmpty())
         QSKIP("AWS_S3_SECRET_ACCESS_KEY not set. This tests requires S3 access.");
 
-    QtS3Private s3(awsKeyId, awsSecretKey);
-    QByteArray usBucketLocation = s3.location("qtestbucket-us");
-    qDebug() << usBucketLocation;
+    QtS3 s3(awsKeyId, awsSecretKey);
+
+    {
+        QtS3Reply<bool> exists = s3.exists("qtestbucket-us", "foo-object");
+        QVERIFY(exists.isSuccess());
+        QVERIFY(exists.value());
+    }
+
+    {
+        QtS3Reply<bool> exists = s3.exists("qtestbucket-us", "foo-object-notcreated");
+        QVERIFY(exists.isSuccess());
+        QVERIFY(!exists.value());
+    }
+}
+
+void TestQtS3::size()
+{
+    QByteArray awsKeyId = qgetenv("AWS_S3_ACCESS_KEY_ID");
+    QByteArray awsSecretKey = qgetenv("AWS_S3_SECRET_ACCESS_KEY");
+    if (awsKeyId.isEmpty())
+        QSKIP("AWS_S3_ACCESS_KEY_ID not set. This tests requires S3 access.");
+    if (awsSecretKey.isEmpty())
+        QSKIP("AWS_S3_SECRET_ACCESS_KEY not set. This tests requires S3 access.");
+
+    QtS3 s3(awsKeyId, awsSecretKey);
+
+    {
+        QtS3Reply<int> sizeReply = s3.size("qtestbucket-us", "foo-object");
+        QVERIFY(sizeReply.isSuccess());
+        QCOMPARE(sizeReply.value(), 14);
+    }
+
+    // Error case: object does not exist
+    {
+        QtS3Reply<int> sizeReply = s3.size("qtestbucket-us", "foo-object-notcreated");
+        QVERIFY(!sizeReply.isSuccess());
+        // value is undefined
+    }
+}
+
+void TestQtS3::get()
+{
+    QByteArray awsKeyId = qgetenv("AWS_S3_ACCESS_KEY_ID");
+    QByteArray awsSecretKey = qgetenv("AWS_S3_SECRET_ACCESS_KEY");
+    if (awsKeyId.isEmpty())
+        QSKIP("AWS_S3_ACCESS_KEY_ID not set. This tests requires S3 access.");
+    if (awsSecretKey.isEmpty())
+        QSKIP("AWS_S3_SECRET_ACCESS_KEY not set. This tests requires S3 access.");
+
+    QtS3 s3(awsKeyId, awsSecretKey);
+
+    // Error case: Empty bucket name
+    {
+        QtS3Reply<QByteArray> contents = s3.get("", "");
+        QCOMPARE(contents.s3Error(), QtS3ReplyBase::BucketNameInvalidError);
+    }
+
+    // Error case: Empty path
+    {
+        QtS3Reply<QByteArray> contents = s3.get("qtestbucket-us", "");
+        QCOMPARE(contents.s3Error(), QtS3ReplyBase::ObjectNameInvalidError);
+    }
+
+    // Error case: Bucket not found
+    {
+        QtS3Reply<QByteArray> contents = s3.get("jkfghskjflahsfklajshdfkasjdhflskdj", "foo-object");
+        QCOMPARE(contents.s3Error(), QtS3ReplyBase::BucketNotFoundError);
+    }
+
+    // Error case: Path not found
+    {
+        QtS3Reply<QByteArray> contents = s3.get("qtestbucket-us", "lskfjsloafkjfldkj");
+        QCOMPARE(contents.s3Error(), QtS3ReplyBase::ObjectNotFoundError);
+    }
+
+    // Us bucket
+    {
+        QtS3Reply<QByteArray> contents = s3.get("qtestbucket-us", "foo-object");
+        QVERIFY(contents.isSuccess());
+        QCOMPARE(contents.value(), QByteArray("foo-content-us"));
+    }
+
+    // Eu bucket
+    {
+        QtS3Reply<QByteArray> contents = s3.get("qtestbucket-eu", "foo-object");
+        QVERIFY(contents.isSuccess());
+        QCOMPARE(contents.value(), QByteArray("foo-content-eu"));
+    }
 }
 
 QTEST_MAIN(TestQtS3)

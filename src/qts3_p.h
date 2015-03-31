@@ -5,6 +5,36 @@
 
 #include <QtNetwork>
 
+class QtS3ReplyPrivate
+{
+public:
+    QtS3ReplyPrivate();
+    QtS3ReplyPrivate(QtS3ReplyBase::S3Error, QString errorString);
+
+    QByteArray m_byteArrayData;
+    bool m_intAndBoolDataValid;
+    int m_intAndBoolData;
+
+    QNetworkReply *m_networkReply;
+
+    QtS3ReplyBase::S3Error m_s3Error;
+    QString m_s3ErrorString;
+
+    bool isSuccess();
+    QNetworkReply::NetworkError networkError();
+    QString networkErrorString();
+    QtS3ReplyBase::S3Error s3Error();
+    QString s3ErrorString();
+    QString anyErrorString();
+
+    void prettyPrintReply();
+    QByteArray headerValue(const QByteArray &headerName);
+
+    bool boolValue();
+    int intValue();
+    QByteArray bytearrayValue();
+};
+
 class QtS3Private
 {
 public:
@@ -14,19 +44,25 @@ public:
     QByteArray m_accessKeyId;
     QByteArray m_secretAccessKey;
 
-    QByteArray m_region;
+    // QByteArray m_region;
     QByteArray m_service;
 
     QNetworkAccessManager *m_networkAccessManager;
 
-    QDateTime s3SigningKeyTimeStamp;
-    QByteArray currents3SigningKey;
+    class S3KeyStruct
+    {
+    public:
+        QDateTime timeStamp;
+        QByteArray key;
+    };
+    QHash<QByteArray, S3KeyStruct> m_signingKeys;  // region -> key struct
+    QHash<QByteArray, QByteArray> m_bucketRegions; // bucket name -> region
 
     static QByteArray hash(const QByteArray &data);
     static QByteArray sign(const QByteArray &key, const QByteArray &data);
 
     static QByteArray deriveSigningKey(const QByteArray &secretAccessKey,
-                                       const QByteArray dateString, const QByteArray &m_region,
+                                       const QByteArray dateString, const QByteArray &region,
                                        const QByteArray &m_service);
 
     static QByteArray formatDate(const QDate &date);
@@ -61,7 +97,7 @@ public:
                               const QByteArray &m_region, const QByteArray &m_service);
 
     // Signing key management
-    static bool checkGenerateSigningKey(QByteArray *currentKey, QDateTime *currentKeyTimestamp,
+    static bool checkGenerateSigningKey(QHash<QByteArray, QtS3Private::S3KeyStruct> *signingKeys,
                                         const QDateTime &now, const QByteArray &secretAccessKey,
                                         const QByteArray &m_region, const QByteArray &m_service);
 
@@ -75,29 +111,42 @@ public:
                             const QByteArray &signingKey, const QDateTime &dateTime,
                             const QByteArray &m_region, const QByteArray &m_service);
 
+    // Error handling
+    static QHash<QByteArray, QByteArray> getErrorComponents(const QByteArray &errorString);
+    static QByteArray getStringToSign(const QByteArray &errorString);
+    static QByteArray getCanonicalRequest(const QByteArray &errorString);
+
     // Top-level stateful functions. These read object state and may/will modify it in a thread-safe way.
     void init();
-    void checkGenerateS3SigningKey();
+    void checkGenerateS3SigningKey(const QByteArray &region);
     QNetworkRequest *createSignedRequest(const QByteArray &verb, const QUrl &url,
                                          const QHash<QByteArray, QByteArray> &headers,
-                                         const QByteArray &host, const QByteArray &payload);
+                                         const QByteArray &host, const QByteArray &payload,
+                                         const QByteArray &region);
     QNetworkReply *sendRequest(const QByteArray &verb, const QNetworkRequest &request,
                                const QByteArray &payload);
     QNetworkReply *sendS3Request(const QByteArray &bucketName, const QByteArray &verb,
                                  const QString &path, const QByteArray &queryString,
                                  const QByteArray &content, const QStringList &headers);
     void waitForFinished(QNetworkReply *reply);
+    QtS3ReplyPrivate *cacheBucketLocation(const QByteArray &bucketName);
+
+    bool checkBucketName(QtS3ReplyPrivate *s3Reply, const QByteArray &bucketName);
+    bool checkPath(QtS3ReplyPrivate *s3Reply, const QByteArray &path);
+    bool cacheBucketLocation(QtS3ReplyPrivate *s3Reply, const QByteArray &bucketName);
+    void processNetworkReplyState(QtS3ReplyPrivate *s3Reply, QNetworkReply *networkReply);
+    QtS3ReplyPrivate *processS3Request(const QByteArray &verb, const QByteArray &bucketName,
+                                       const QByteArray &path, const QByteArray &query,
+                                       const QByteArray &content, const QStringList &headers);
 
     // Public API. The public QtS3 class calls these.
-    QByteArray location(const QByteArray &bucketName);
-    bool put(const QByteArray &bucketName, const QString &path, const QByteArray &content,
-             const QStringList &headers);
-    bool exists(const QByteArray &bucketName, const QString &path);
-    int size(const QByteArray &bucketName, const QString &path);
-    QtS3Optional<QByteArray> get(const QByteArray &bucketName, const QString &path);
-    bool get(QByteArray *destination, const QByteArray &bucketName, const QString &path);
-
-    template <typename L> bool get(const QByteArray &bucketName, const QString &path, L writer);
+    void preflight(const QByteArray &bucketName);
+    QtS3ReplyPrivate *location(const QByteArray &bucketName);
+    QtS3ReplyPrivate *put(const QByteArray &bucketName, const QString &path,
+                          const QByteArray &content, const QStringList &headers);
+    QtS3ReplyPrivate *exists(const QByteArray &bucketName, const QString &path);
+    QtS3ReplyPrivate *size(const QByteArray &bucketName, const QString &path);
+    QtS3ReplyPrivate *get(const QByteArray &bucketName, const QString &path);
 };
 
 #endif

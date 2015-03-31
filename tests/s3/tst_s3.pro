@@ -1,6 +1,6 @@
 include ($$PWD/../../src/qts3.pri)
 
-QT += core network testlib
+QT = core network testlib
 
 TARGET = tst_qts3
 TEMPLATE = app

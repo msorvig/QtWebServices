@@ -2,24 +2,59 @@
 #define QTS3_H
 
 #include <QtCore>
+#include <QtNetwork>
 
 class QtS3Private;
+class QtS3;
+class QtS3ReplyPrivate;
 
-template <typename T> class QtS3Optional
+class QtS3ReplyBase
 {
 public:
-    QtS3Optional(T t) : m_t(t), m_isValid(true) {}
+    enum S3Error {
+        NoError,
+        NetworkError,
+        CredentialsError,
+        BucketNameInvalidError,
+        BucketNotFoundError,
+        ObjectNameInvalidError,
+        ObjectNotFoundError,
+        GenereicS3Error,
+        InternalSignatureError,
+        InternalReplyInitializationError,
+        InternalError,
+        UnknownError,
+    };
 
-    QtS3Optional() : m_t(T()), m_isValid(false) {}
+    QtS3ReplyBase(QtS3ReplyPrivate *replyPrivate);
 
-    T get() { return m_t; }
+    // error handling
+    bool isSuccess();
+    QNetworkReply::NetworkError networkError();
+    QString networkErrorString();
+    S3Error s3Error();
+    QString s3ErrorString();
+    QString anyErrorString();
 
-    bool isValid() { return m_isValid; }
+    // verbatim reply as returned by AWS
+    QByteArray replyData();
 
-private:
-    T m_t;
-    bool m_isValid;
+protected:
+    QtS3ReplyPrivate *d; // ### should be explicitly shared.
 };
+
+template <typename T> class QtS3Reply : public QtS3ReplyBase
+{
+public:
+    QtS3Reply(QtS3ReplyPrivate *replyPrivate);
+    T value();
+};
+
+template <typename T>
+QtS3Reply<T>::QtS3Reply(QtS3ReplyPrivate *replyPrivate)
+    : QtS3ReplyBase(replyPrivate)
+{
+}
 
 class QtS3
 {
@@ -27,11 +62,12 @@ public:
     QtS3(const QString &accessKeyId, const QString &secretAccessKey);
     ~QtS3();
 
-    bool put(const QByteArray &bucketName, const QString &path, const QByteArray &content,
-             const QStringList &headers);
-    bool exists(const QByteArray &bucketName, const QString &path);
-    QtS3Optional<QByteArray> get(const QByteArray &bucketName, const QString &path);
-    bool get(QByteArray *destination, const QByteArray &bucketName, const QString &path);
+    QtS3Reply<QByteArray> location(const QByteArray &bucketName);
+    QtS3Reply<void> put(const QByteArray &bucketName, const QString &path,
+                        const QByteArray &content, const QStringList &headers);
+    QtS3Reply<bool> exists(const QByteArray &bucketName, const QString &path);
+    QtS3Reply<int> size(const QByteArray &bucketName, const QString &path);
+    QtS3Reply<QByteArray> get(const QByteArray &bucketName, const QString &path);
 
 private:
     QtS3Private *d;
