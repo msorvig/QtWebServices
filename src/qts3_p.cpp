@@ -127,7 +127,7 @@ QtS3Private::QtS3Private() : m_networkAccessManager(0) {}
 
 QtS3Private::QtS3Private(QByteArray accessKeyId, QByteArray secretAccessKey)
     : m_accessKeyId(accessKeyId), m_secretAccessKey(secretAccessKey),
-      m_networkAccessManager(new QNetworkAccessManager)
+      m_networkAccessManager(new ThreadsafeBlockingNetworkAccesManager)
 {
     init();
 }
@@ -422,14 +422,15 @@ void QtS3Private::init()
 
     m_service = "s3";
 
-    m_networkAccessManager = new QNetworkAccessManager();
+    m_networkAccessManager = new ThreadsafeBlockingNetworkAccesManager();
 }
 
 void QtS3Private::checkGenerateS3SigningKey(const QByteArray &region)
 {
     QDateTime now = QDateTime::currentDateTimeUtc();
-    // lock
+    m_signingKeysLock.lockForWrite();
     checkGenerateSigningKey(&m_signingKeys, now, m_secretAccessKey, region, m_service);
+    m_signingKeysLock.unlock();
     // std::tuple keyTimeCopy { currents3SigningKey, s3SigningKeyTimeStamp };
     // return keyTimeCopy;
 }
@@ -444,9 +445,14 @@ QNetworkRequest *QtS3Private::createSignedRequest(const QByteArray &verb, const 
 
     // Create and sign request
     QNetworkRequest *request = new QNetworkRequest();
+
+    // request->setAttribute(QNetworkRequest::SynchronousRequestAttribute, true);
+
     setRequestAttributes(request, url, headers, requestTime, host);
-    signRequest(request, verb, payload, m_accessKeyId, m_signingKeys.value(region).key, requestTime,
-                region, m_service);
+    m_signingKeysLock.lockForRead();
+    QByteArray key = m_signingKeys.value(region).key;
+    m_signingKeysLock.unlock();
+    signRequest(request, verb, payload, m_accessKeyId, key, requestTime, region, m_service);
     return request;
 }
 
@@ -468,8 +474,9 @@ QNetworkReply *QtS3Private::sendRequest(const QByteArray &verb, const QNetworkRe
     }
 
     // Send request
-    QNetworkReply *reply
-        = m_networkAccessManager->sendCustomRequest(request, verb, m_inFlightBuffer);
+    // QNetworkAccessManager *qnam = new QNetworkAccessManager;
+    QNetworkReply *reply =
+        m_networkAccessManager->sendCustomRequest(request, verb, m_inFlightBuffer);
     return reply;
 }
 
@@ -481,7 +488,9 @@ QNetworkReply *QtS3Private::sendS3Request(const QByteArray &bucketName, const QB
     const QByteArray url = "https://" + host + "/" + path.toLatin1() + "?" + queryString;
 
     QHash<QByteArray, QByteArray> hashHeaders = parseHeaderList(headers);
+    m_bucketRegionsLock.lockForRead();
     QByteArray region = m_bucketRegions.value(bucketName);
+    m_bucketRegionsLock.unlock();
     if (region.isEmpty()) {
         // internal error
         qDebug() << "No region for" << bucketName;
@@ -490,33 +499,6 @@ QNetworkReply *QtS3Private::sendS3Request(const QByteArray &bucketName, const QB
     QNetworkRequest *request =
         createSignedRequest(verb, QUrl(url), hashHeaders, host, content, region);
     return sendRequest(verb, *request, content);
-}
-
-void QtS3Private::waitForFinished(QNetworkReply *reply)
-{
-    // QNetworkReply does not implement waitForReadyRead(),
-    // this seems to be the best way to wait.
-    QEventLoop loop;
-    QObject::connect(reply, SIGNAL(finished()), &loop, SLOT(quit()));
-    loop.exec();
-    delete m_inFlightBuffer;
-    m_inFlightBuffer = 0;
-}
-
-// The AWS signing key and generated StringToSign depends on the
-// bucket region. This funciton maintains a map of bucketName ->
-// region for all seen buckets. Returns true if the bucket locatiojn
-// could be established.
-QtS3ReplyPrivate *QtS3Private::cacheBucketLocation(const QByteArray &bucketName)
-{
-    if (m_bucketRegions.contains(bucketName))
-        return new QtS3ReplyPrivate(QtS3ReplyBase::NoError, QString());
-
-    QtS3ReplyPrivate *locationReply = this->location(bucketName);
-    if (locationReply->isSuccess()) {
-        m_bucketRegions.insert(bucketName, locationReply->bytearrayValue());
-    }
-    return locationReply;
 }
 
 QHash<QByteArray, QByteArray> QtS3Private::getErrorComponents(const QByteArray &errorString)
@@ -556,8 +538,7 @@ QByteArray QtS3Private::getCanonicalRequest(const QByteArray &errorString)
 
 void QtS3Private::preflight(const QByteArray &bucketName)
 {
-    QtS3ReplyPrivate *reply = cacheBucketLocation(bucketName);
-    delete reply;
+    cacheBucketLocation(0, bucketName);
 }
 
 bool QtS3Private::checkBucketName(QtS3ReplyPrivate *s3Reply, const QByteArray &bucketName)
@@ -588,23 +569,49 @@ bool QtS3Private::checkPath(QtS3ReplyPrivate *s3Reply, const QByteArray &path)
     return true;
 }
 
+// The AWS signing key and generated StringToSign depends on the
+// bucket region. This funciton maintains a map of bucketName ->
+// region for all seen buckets. Returns true if the bucket locatiojn
+// could be established.
 bool QtS3Private::cacheBucketLocation(QtS3ReplyPrivate *s3Reply, const QByteArray &bucketName)
 {
-    if (m_bucketRegions.contains(bucketName))
+    // Check if bucket region is cached.
+    m_bucketRegionsLock.lockForRead();
+    if (m_bucketRegions.contains(bucketName)) {
+        m_bucketRegionsLock.unlock();
         return true;
+    }
+    m_bucketRegionsLock.unlock();
 
+    // Send location request.
     QtS3ReplyPrivate *locationReply = this->location(bucketName);
     if (!locationReply->isSuccess()) {
-        // copy locationReply to s3Reply;
-        s3Reply->m_networkReply = locationReply->m_networkReply;
-        s3Reply->m_s3Error = locationReply->m_s3Error;
-        s3Reply->m_s3ErrorString = locationReply->m_s3ErrorString;
+        // propagate error, copy locationReply to s3Reply;
+        if (s3Reply) {
+            s3Reply->m_networkReply = locationReply->m_networkReply;
+            s3Reply->m_s3Error = locationReply->m_s3Error;
+            s3Reply->m_s3ErrorString = locationReply->m_s3ErrorString;
+        }
         delete locationReply;
         return false;
     }
-
-    m_bucketRegions.insert(bucketName, locationReply->bytearrayValue());
+    QByteArray contents = locationReply->bytearrayValue();
     delete locationReply;
+
+    // Check (again) if bucket region is cached.
+    m_bucketRegionsLock.lockForRead();
+    if (m_bucketRegions.contains(bucketName)) {
+        m_bucketRegionsLock.unlock();
+        return true;
+    }
+    m_bucketRegionsLock.unlock();
+
+    // Update cache with bucket locaton
+    m_bucketRegionsLock.lockForWrite();
+    if (!m_bucketRegions.contains(bucketName))
+        m_bucketRegions.insert(bucketName, contents);
+    m_bucketRegionsLock.unlock();
+
     return true;
 }
 
@@ -663,7 +670,6 @@ QtS3ReplyPrivate *QtS3Private::processS3Request(const QByteArray &verb,
         return s3Reply;
 
     QNetworkReply *networkReply = sendS3Request(bucketName, verb, path, query, content, headers);
-    waitForFinished(networkReply);
 
     processNetworkReplyState(s3Reply, networkReply);
 
@@ -684,7 +690,6 @@ QtS3ReplyPrivate *QtS3Private::location(const QByteArray &bucketName)
     QNetworkRequest *request = createSignedRequest(
         "GET", QUrl(url), QHash<QByteArray, QByteArray>(), host, QByteArray(), "us-east-1");
     QNetworkReply *networkReply = sendRequest("GET", *request, QByteArray());
-    waitForFinished(networkReply);
 
     processNetworkReplyState(s3Reply, networkReply);
 

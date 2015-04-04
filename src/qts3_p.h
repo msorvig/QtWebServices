@@ -2,6 +2,7 @@
 #define QTS3_P_H
 
 #include "qts3.h"
+#include "blockingnetworkaccessmanager.h"
 
 #include <QtNetwork>
 
@@ -43,11 +44,8 @@ public:
 
     QByteArray m_accessKeyId;
     QByteArray m_secretAccessKey;
-
-    // QByteArray m_region;
     QByteArray m_service;
-
-    QNetworkAccessManager *m_networkAccessManager;
+    ThreadsafeBlockingNetworkAccesManager *m_networkAccessManager;
 
     class S3KeyStruct
     {
@@ -56,7 +54,9 @@ public:
         QByteArray key;
     };
     QHash<QByteArray, S3KeyStruct> m_signingKeys;  // region -> key struct
+    QReadWriteLock m_signingKeysLock;
     QHash<QByteArray, QByteArray> m_bucketRegions; // bucket name -> region
+    QReadWriteLock m_bucketRegionsLock;
 
     static QByteArray hash(const QByteArray &data);
     static QByteArray sign(const QByteArray &key, const QByteArray &data);
@@ -128,8 +128,6 @@ public:
     QNetworkReply *sendS3Request(const QByteArray &bucketName, const QByteArray &verb,
                                  const QString &path, const QByteArray &queryString,
                                  const QByteArray &content, const QStringList &headers);
-    void waitForFinished(QNetworkReply *reply);
-    QtS3ReplyPrivate *cacheBucketLocation(const QByteArray &bucketName);
 
     bool checkBucketName(QtS3ReplyPrivate *s3Reply, const QByteArray &bucketName);
     bool checkPath(QtS3ReplyPrivate *s3Reply, const QByteArray &path);

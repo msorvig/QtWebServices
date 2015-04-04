@@ -1,7 +1,9 @@
 #ifndef BLOCKINGNETWORKACCESSMANAGER_H
 #define BLOCKINGNETWORKACCESSMANAGER_H
 
-#include <QNetworkAccessManager>
+#include <QtNetwork/QNetworkAccessManager>
+#include <QtCore/QMutex>
+#include <QtCore/QWaitCondition>
 
 class BlockingNetworkAccessManager : public QNetworkAccessManager
 {
@@ -9,8 +11,34 @@ public:
     BlockingNetworkAccessManager(QObject *parent = 0);
 
     QNetworkReply *syncGet(const QNetworkRequest &request);
-private slots:
-    void replyFinished(QNetworkReply *);
+};
+
+class SlottetNetworkAccessManager : public QNetworkAccessManager
+{
+    Q_OBJECT
+public:
+public slots:
+    QNetworkReply *sendCustomRequest_slot(const QNetworkRequest &request, const QByteArray &verb,
+                                          QIODevice *data = 0);
+};
+
+class ThreadsafeBlockingNetworkAccesManager : public QObject
+{
+    Q_OBJECT
+public:
+    ThreadsafeBlockingNetworkAccesManager();
+    ~ThreadsafeBlockingNetworkAccesManager();
+    QNetworkReply *sendCustomRequest(const QNetworkRequest &request, const QByteArray &verb,
+                                     QIODevice *data = 0);
+
+public slots:
+    void wakeWaitingThreads();
+
+private:
+    QNetworkAccessManager *m_networkAccessManager;
+    QThread *m_networkThread;
+    QMutex m_mutex;
+    QWaitCondition m_waitConditon;
 };
 
 #endif

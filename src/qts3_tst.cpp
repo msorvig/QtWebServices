@@ -38,6 +38,9 @@ private slots:
     void exists();
     void size();
     void get();
+
+    // Threaded integration tests
+    void thread_putget();
 };
 
 // test date and time formatting
@@ -406,6 +409,7 @@ void TestQtS3::size()
 
     QtS3 s3(awsKeyId, awsSecretKey);
 
+    // exisiting files
     {
         QtS3Reply<int> sizeReply = s3.size("qtestbucket-us", "foo-object");
         QVERIFY(sizeReply.isSuccess());
@@ -468,6 +472,66 @@ void TestQtS3::get()
         QVERIFY(contents.isSuccess());
         QCOMPARE(contents.value(), QByteArray("foo-content-eu"));
     }
+}
+
+template <typename F> class Runnable : public QRunnable
+{
+public:
+    Runnable(const F &f, int threadCount, QThreadPool *threadPool)
+        : m_f(f), m_threadCount(threadCount), m_threadPool(threadPool)
+    {
+        setAutoDelete(false);
+    }
+
+    void run()
+    {
+        int threadCountCopy = m_threadCount;
+        m_threadCount = 0;
+        for (int i = 0; i < threadCountCopy; ++i)
+            m_threadPool->tryStart(this);
+        m_f();
+    }
+
+    F m_f;
+    int m_threadCount;
+    QThreadPool *m_threadPool;
+};
+
+template <typename F> void runOnThreads(int threadCount, F lambda)
+{
+    QThreadPool pool;
+    pool.setMaxThreadCount(threadCount);
+
+    Runnable<F> runnable(lambda, threadCount - 1, &pool);
+    pool.start(&runnable);
+
+    pool.waitForDone();
+}
+
+void TestQtS3::thread_putget()
+{
+    QByteArray awsKeyId = qgetenv("AWS_S3_ACCESS_KEY_ID");
+    QByteArray awsSecretKey = qgetenv("AWS_S3_SECRET_ACCESS_KEY");
+    if (awsKeyId.isEmpty())
+        QSKIP("AWS_S3_ACCESS_KEY_ID not set. This tests requires S3 access.");
+    if (awsSecretKey.isEmpty())
+        QSKIP("AWS_S3_SECRET_ACCESS_KEY not set. This tests requires S3 access.");
+
+    QtS3 s3(awsKeyId, awsSecretKey);
+
+    runOnThreads(50, [&s3]() {
+        {
+            QtS3Reply<void> reply =
+                s3.put("qtestbucket-eu", "foo-object", "foo-content-eu", QStringList());
+            QVERIFY(reply.isSuccess());
+        }
+
+        {
+            QtS3Reply<QByteArray> contents = s3.get("qtestbucket-eu", "foo-object");
+            QVERIFY(contents.isSuccess());
+            QCOMPARE(contents.value(), QByteArray("foo-content-eu"));
+        }
+    });
 }
 
 QTEST_MAIN(TestQtS3)
