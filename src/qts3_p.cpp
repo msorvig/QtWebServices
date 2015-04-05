@@ -786,3 +786,15 @@ QtS3ReplyPrivate *QtS3Private::get(const QByteArray &bucketName, const QString &
     }
     return s3Reply;
 }
+
+void QtS3Private::clearCaches()
+{
+    m_signingKeysLock.lockForWrite();
+    m_signingKeys.clear();
+    m_signingKeysLock.unlock();
+
+    m_bucketRegionsLock.lockForWrite();
+    m_bucketRegions.clear();
+    m_bucketRegionsLock.unlock();
+}
+
