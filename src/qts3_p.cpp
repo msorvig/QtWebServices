@@ -45,16 +45,18 @@
 //
 
 QtS3ReplyPrivate::QtS3ReplyPrivate()
-    : m_networkReply(0), m_intAndBoolDataValid(false),
+    : m_intAndBoolDataValid(false), m_networkReply(0),
       m_s3Error(QtS3ReplyBase::InternalReplyInitializationError),
       m_s3ErrorString("Internal error: un-initianlized QtS3Reply.")
 {
+
 }
 
 QtS3ReplyPrivate::QtS3ReplyPrivate(QtS3ReplyBase::S3Error error, QString errorString)
-    : m_networkReply(0), m_intAndBoolDataValid(false), m_s3Error(error),
+    : m_intAndBoolDataValid(false), m_networkReply(0), m_s3Error(error),
       m_s3ErrorString(errorString)
 {
+
 }
 
 QNetworkReply::NetworkError QtS3ReplyPrivate::networkError()
@@ -126,8 +128,17 @@ QByteArray QtS3ReplyPrivate::bytearrayValue() { return m_byteArrayData; }
 QtS3Private::QtS3Private() : m_networkAccessManager(0) {}
 
 QtS3Private::QtS3Private(QByteArray accessKeyId, QByteArray secretAccessKey)
-    : m_accessKeyId(accessKeyId), m_secretAccessKey(secretAccessKey),
-      m_networkAccessManager(new ThreadsafeBlockingNetworkAccesManager)
+{
+    m_accessKeyIdProvider = [accessKeyId](){ return accessKeyId; };
+    m_secretAccessKeyProvider = [secretAccessKey](){ return secretAccessKey; };
+
+    init();
+}
+
+QtS3Private::QtS3Private(std::function<QByteArray()> accessKeyIdProvider,
+                         std::function<QByteArray()> secretAccessKeyProvider)
+    : m_accessKeyIdProvider(accessKeyIdProvider),
+      m_secretAccessKeyProvider(secretAccessKeyProvider)
 {
     init();
 }
@@ -418,16 +429,15 @@ void QtS3Private::signRequest(QNetworkRequest *request, const QByteArray &verb,
 
 void QtS3Private::init()
 {
-    if (m_accessKeyId.isEmpty()) {
-        qWarning() << "access key id not set";
+    if (m_accessKeyIdProvider().isEmpty()) {
+        qWarning() << "access key id not specified";
     }
 
-    if (m_secretAccessKey.isEmpty()) {
+    if (m_secretAccessKeyProvider().isEmpty()) {
         qWarning() << "secret access key not set";
     }
 
     m_service = "s3";
-
     m_networkAccessManager = new ThreadsafeBlockingNetworkAccesManager();
 }
 
@@ -435,7 +445,7 @@ void QtS3Private::checkGenerateS3SigningKey(const QByteArray &region)
 {
     QDateTime now = QDateTime::currentDateTimeUtc();
     m_signingKeysLock.lockForWrite();
-    checkGenerateSigningKey(&m_signingKeys, now, m_secretAccessKey, region, m_service);
+    checkGenerateSigningKey(&m_signingKeys, now, m_secretAccessKeyProvider(), region, m_service);
     m_signingKeysLock.unlock();
     // std::tuple keyTimeCopy { currents3SigningKey, s3SigningKeyTimeStamp };
     // return keyTimeCopy;
@@ -458,7 +468,7 @@ QNetworkRequest *QtS3Private::createSignedRequest(const QByteArray &verb, const 
     m_signingKeysLock.lockForRead();
     QByteArray key = m_signingKeys.value(region).key;
     m_signingKeysLock.unlock();
-    signRequest(request, verb, payload, m_accessKeyId, key, requestTime, region, m_service);
+    signRequest(request, verb, payload, m_accessKeyIdProvider(), key, requestTime, region, m_service);
     return request;
 }
 

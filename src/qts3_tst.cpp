@@ -510,16 +510,11 @@ template <typename F> void runOnThreads(int threadCount, F lambda)
 
 void TestQtS3::thread_putget()
 {
-    QByteArray awsKeyId = qgetenv("AWS_S3_ACCESS_KEY_ID");
-    QByteArray awsSecretKey = qgetenv("AWS_S3_SECRET_ACCESS_KEY");
-    if (awsKeyId.isEmpty())
-        QSKIP("AWS_S3_ACCESS_KEY_ID not set. This tests requires S3 access.");
-    if (awsSecretKey.isEmpty())
-        QSKIP("AWS_S3_SECRET_ACCESS_KEY not set. This tests requires S3 access.");
+    QtS3 s3([]() { return qgetenv("AWS_S3_ACCESS_KEY_ID"); },
+            []() { return qgetenv("AWS_S3_SECRET_ACCESS_KEY"); });
 
-    QtS3 s3(awsKeyId, awsSecretKey);
-
-    runOnThreads(50, [&s3]() {
+    runOnThreads(50, [&s3]()
+    {
         {
             QtS3Reply<void> reply =
                 s3.put("qtestbucket-eu", "foo-object", "foo-content-eu", QStringList());

@@ -6,6 +6,8 @@
 
 #include <QtNetwork>
 
+#include <functional>
+
 class QtS3ReplyPrivate
 {
 public:
@@ -41,9 +43,12 @@ class QtS3Private
 public:
     QtS3Private();
     QtS3Private(QByteArray accessKeyId, QByteArray secretAccessKey);
+    QtS3Private(std::function<QByteArray()> accessKeyIdProvider,
+                std::function<QByteArray()> secretAccessKeyProvider);
+    ~QtS3Private();
 
-    QByteArray m_accessKeyId;
-    QByteArray m_secretAccessKey;
+    std::function<QByteArray()> m_accessKeyIdProvider;
+    std::function<QByteArray()> m_secretAccessKeyProvider;
     QByteArray m_service;
     ThreadsafeBlockingNetworkAccesManager *m_networkAccessManager;
 

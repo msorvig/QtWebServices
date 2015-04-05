@@ -54,13 +54,15 @@ template <typename T>
 QtS3Reply<T>::QtS3Reply(QtS3ReplyPrivate *replyPrivate)
     : QtS3ReplyBase(replyPrivate)
 {
+
 }
 
 class QtS3
 {
 public:
     QtS3(const QString &accessKeyId, const QString &secretAccessKey);
-    ~QtS3();
+    QtS3(std::function<QByteArray()> accessKeyIdProvider,
+         std::function<QByteArray()> secretAccessKeyProvider);
 
     QtS3Reply<QByteArray> location(const QByteArray &bucketName);
     QtS3Reply<void> put(const QByteArray &bucketName, const QString &path,
@@ -69,6 +71,7 @@ public:
     QtS3Reply<int> size(const QByteArray &bucketName, const QString &path);
     QtS3Reply<QByteArray> get(const QByteArray &bucketName, const QString &path);
 
+    void clearCaches();
 private:
     QSharedPointer<QtS3Private> d;
 };

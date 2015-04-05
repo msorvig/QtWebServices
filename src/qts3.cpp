@@ -23,11 +23,15 @@ template <> int QtS3Reply<int>::value() { return d->intValue(); }
 template <> QByteArray QtS3Reply<QByteArray>::value() { return d->bytearrayValue(); }
 
 QtS3::QtS3(const QString &accessKeyId, const QString &secretAccessKey) : d(new QtS3Private)
+QtS3::QtS3(const QString &accessKeyId, const QString &secretAccessKey)
+    : d(new QtS3Private(accessKeyId.toLatin1(), secretAccessKey.toLatin1()))
 {
-    d->m_accessKeyId = accessKeyId.toLatin1();
-    d->m_secretAccessKey = secretAccessKey.toLatin1();
+}
 
-    d->init();
+QtS3::QtS3(std::function<QByteArray()> accessKeyIdProvider,
+           std::function<QByteArray()> secretAccessKeyProvider)
+: d(new QtS3Private(accessKeyIdProvider, secretAccessKeyProvider))
+{
 }
 
 
@@ -55,4 +59,9 @@ QtS3Reply<int> QtS3::size(const QByteArray &bucketName, const QString &path)
 QtS3Reply<QByteArray> QtS3::get(const QByteArray &bucketName, const QString &path)
 {
     return QtS3Reply<QByteArray>(d->get(bucketName, path));
+}
+
+void QtS3::clearCaches()
+{
+    d->clearCaches();
 }
