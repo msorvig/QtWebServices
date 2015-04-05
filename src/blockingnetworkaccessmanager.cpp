@@ -33,6 +33,8 @@ ThreadsafeBlockingNetworkAccesManager::ThreadsafeBlockingNetworkAccesManager()
     m_networkThread->start();
     m_networkAccessManager = new SlottetNetworkAccessManager;
     m_networkAccessManager->moveToThread(m_networkThread);
+    m_requestCount = 0;
+    m_cancellAll = false;
 }
 
 ThreadsafeBlockingNetworkAccesManager::~ThreadsafeBlockingNetworkAccesManager()
@@ -47,6 +49,12 @@ ThreadsafeBlockingNetworkAccesManager::~ThreadsafeBlockingNetworkAccesManager()
 QNetworkReply *ThreadsafeBlockingNetworkAccesManager::sendCustomRequest(
     const QNetworkRequest &request, const QByteArray &verb, QIODevice *data)
 {
+    // Maintain the active request count
+    {
+        QMutexLocker lock(&m_mutex);
+        ++m_requestCount;
+    }
+
     // Call sendCustomRequest on QNetworkAccessMaanger, on the network thread. Use a
     // BlockingQueuedConnection to get the returned reply object.
     QNetworkReply *reply = 0;
@@ -56,6 +64,7 @@ QNetworkReply *ThreadsafeBlockingNetworkAccesManager::sendCustomRequest(
                               Q_ARG(QIODevice *, data));
 
     // The reply should wake this thread when the request completes.
+    // (this currently wakes all threads and could be optimized)
     connect(reply, SIGNAL(finished()), this, SLOT(wakeWaitingThreads()), Qt::DirectConnection);
 
     // Special case for HEAD requests: return on first metaDataChanged(). Needed to reduce
@@ -65,13 +74,60 @@ QNetworkReply *ThreadsafeBlockingNetworkAccesManager::sendCustomRequest(
         connect(reply, SIGNAL(metaDataChanged()), this, SLOT(wakeWaitingThreads()),
                 Qt::DirectConnection);
 
-    // Wait until the request completes
-    while (!(reply->isFinished() || (isHead && reply->rawHeaderList().count() > 0))) {
+    // Wait until the request completes, or is cancelled, or HEAD returns headers.
+    {
         QMutexLocker lock(&m_mutex);
-        m_waitConditon.wait(&m_mutex);
+        while (!(reply->isFinished() || m_cancellAll || (isHead && reply->rawHeaderList().count() > 0))) {
+            m_waitCompleted.wait(&m_mutex);
+        }
+    }
+
+    // Abort the any network operation in progress if cancelling.
+    if (m_cancellAll)
+        reply->abort();
+
+    // Maintain the active request count. Wake any waitAll waiters (lock
+    // to avoid racing the wait() in waitForAll())
+    {
+        QMutexLocker lock(&m_mutex);
+         --m_requestCount;
+        if (m_requestCount == 0) {
+            m_cancellAll = false;
+            m_waitAll.wakeAll();
+        }
     }
 
     return reply;
 }
 
-void ThreadsafeBlockingNetworkAccesManager::wakeWaitingThreads() { m_waitConditon.wakeAll(); }
+// Cancels all in-progress network operatikons. Sets a cancel state,
+// which is in effect until the netowrk access manager is completely
+// drained.
+void ThreadsafeBlockingNetworkAccesManager::cancelAll()
+{
+    QMutexLocker lock(&m_mutex);
+    if (m_requestCount == 0)
+        return;
+
+    m_cancellAll = true;
+    m_waitCompleted.wakeAll();
+}
+
+// Wait until all in-progress netowork operations completes.
+void ThreadsafeBlockingNetworkAccesManager::waitForAll()
+{
+    QMutexLocker lock(&m_mutex);
+    m_waitAll.wait(&m_mutex);
+}
+
+int ThreadsafeBlockingNetworkAccesManager::pendingRequests()
+{
+    QMutexLocker lock(&m_mutex);
+    return m_cancellAll;
+}
+
+void ThreadsafeBlockingNetworkAccesManager::wakeWaitingThreads()
+{
+    QMutexLocker lock(&m_mutex);
+    m_waitCompleted.wakeAll();
+}

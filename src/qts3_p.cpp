@@ -132,6 +132,12 @@ QtS3Private::QtS3Private(QByteArray accessKeyId, QByteArray secretAccessKey)
     init();
 }
 
+QtS3Private::~QtS3Private()
+{
+    if (m_networkAccessManager->pendingRequests() > 0)
+        qWarning() << "QtS3 object deleted with pending requests in flight";
+}
+
 //  Returns a date formatted as YYYYMMDD.
 QByteArray QtS3Private::formatDate(const QDate &date)
 {

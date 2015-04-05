@@ -30,6 +30,9 @@ public:
     ~ThreadsafeBlockingNetworkAccesManager();
     QNetworkReply *sendCustomRequest(const QNetworkRequest &request, const QByteArray &verb,
                                      QIODevice *data = 0);
+    void cancelAll();
+    void waitForAll();
+    int pendingRequests();
 
 public slots:
     void wakeWaitingThreads();
@@ -38,7 +41,10 @@ private:
     QNetworkAccessManager *m_networkAccessManager;
     QThread *m_networkThread;
     QMutex m_mutex;
-    QWaitCondition m_waitConditon;
+    QWaitCondition m_waitCompleted;
+    QWaitCondition m_waitAll;
+    int m_requestCount;
+    bool m_cancellAll;
 };
 
 #endif
