@@ -70,7 +70,7 @@ public:
     QtS3Reply<QByteArray> get(const QByteArray &bucketName, const QString &path);
 
 private:
-    QtS3Private *d;
+    QSharedPointer<QtS3Private> d;
 };
 
 #endif

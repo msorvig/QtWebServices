@@ -30,7 +30,6 @@ QtS3::QtS3(const QString &accessKeyId, const QString &secretAccessKey) : d(new Q
     d->init();
 }
 
-QtS3::~QtS3() { delete d; }
 
 QtS3Reply<QByteArray> QtS3::location(const QByteArray &bucketName)
 {
